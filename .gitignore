@@ -1,0 +1,18 @@
+# Real bank data. NEVER committed.
+corpus/*
+!corpus/.gitkeep
+*.pdf
+
+# Build artifacts
+target/
+node_modules/
+dist/
+
+# Secrets & environment
+.env*
+*.keystore
+*.jks
+*.p12
+
+# Local-only prompt/notes
+trackery_fi_sprint1_prompt.md
