@@ -52,7 +52,10 @@ impl Money {
         let mut sign: i64 = 1;
         let upper = s.to_ascii_uppercase();
         for (suffix, suffix_sign) in [("CR", 1), ("DR", -1)] {
-            if let Some(stripped) = upper.strip_suffix('.').unwrap_or(&upper).strip_suffix(suffix)
+            if let Some(stripped) = upper
+                .strip_suffix('.')
+                .unwrap_or(&upper)
+                .strip_suffix(suffix)
             {
                 sign = suffix_sign;
                 s = s[..stripped.len()].trim_end();
@@ -73,7 +76,8 @@ impl Money {
             return Err(invalid());
         }
         let digits: String = rupees_str.chars().filter(|c| *c != ',').collect();
-        if !digits.bytes().all(|b| b.is_ascii_digit()) || (digits.is_empty() && paise_str.is_empty())
+        if !digits.bytes().all(|b| b.is_ascii_digit())
+            || (digits.is_empty() && paise_str.is_empty())
         {
             return Err(invalid());
         }
@@ -140,6 +144,8 @@ impl fmt::Display for Money {
 }
 
 #[cfg(test)]
+// Underscores deliberately mirror Indian digit grouping of the adjacent strings.
+#[allow(clippy::inconsistent_digit_grouping)]
 mod tests {
     use super::*;
 
@@ -192,7 +198,9 @@ mod tests {
     fn rejects_overflow() {
         assert_eq!(
             Money::parse("92,23,37,20,36,85,47,75,807.00"),
-            Err(MoneyError::Overflow("92,23,37,20,36,85,47,75,807.00".into()))
+            Err(MoneyError::Overflow(
+                "92,23,37,20,36,85,47,75,807.00".into()
+            ))
         );
     }
 

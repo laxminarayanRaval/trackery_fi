@@ -5,3 +5,4 @@
 //! outside world — everything runs on-device.
 
 pub mod money;
+pub mod pdf;

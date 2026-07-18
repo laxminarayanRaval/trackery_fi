@@ -6,3 +6,8 @@ license.workspace = true
 
 [dependencies]
 thiserror = "2"
+# ponytail: text extraction only — image/render features disabled to keep the Android build lean
+pdfium-render = { version = "0.8", default-features = false, features = ["sync", "pdfium_latest"] }
+
+[dev-dependencies]
+md-5 = "0.10" # encrypted-PDF fixture generation in pdf.rs tests
