@@ -8,4 +8,5 @@ pub mod banks;
 pub mod db;
 pub mod model;
 pub mod money;
+pub mod narration;
 pub mod pdf;

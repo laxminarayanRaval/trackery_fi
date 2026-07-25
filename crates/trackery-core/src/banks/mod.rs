@@ -34,8 +34,19 @@ pub trait BankProfile {
     fn parse(&self, pages: &[String]) -> Result<Vec<Transaction>, ParseError>;
 }
 
-/// Detect the bank from the first page and parse the whole statement.
+/// Detect the bank from the first page, parse the whole statement, and
+/// decompose each narration into counterparty fields where a pattern matches.
 pub fn parse_statement(pages: &[String]) -> Result<Vec<Transaction>, ParseError> {
+    let mut txns = detect_and_parse(pages)?;
+    for txn in &mut txns {
+        if let (None, Some(bank)) = (&txn.counterparty, txn.bank) {
+            txn.counterparty = crate::narration::decompose(bank, &txn.narration_raw);
+        }
+    }
+    Ok(txns)
+}
+
+fn detect_and_parse(pages: &[String]) -> Result<Vec<Transaction>, ParseError> {
     // Detection order: BOB → HDFC → ICICI, first match wins. Each bank parser
     // task registers itself here with
     // `if <Profile>::detect(first) { return <Profile>.parse(pages); }`.
