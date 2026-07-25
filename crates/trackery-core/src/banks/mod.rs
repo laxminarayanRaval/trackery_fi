@@ -9,6 +9,8 @@
 //! and the app layer assigns the real account (single implicit account in
 //! Sprint 1, see BACKLOG.md).
 
+pub mod bob;
+
 use crate::model::{Bank, Transaction};
 
 #[derive(Debug, thiserror::Error)]
@@ -36,6 +38,8 @@ pub fn parse_statement(pages: &[String]) -> Result<Vec<Transaction>, ParseError>
     // task registers itself here with
     // `if <Profile>::detect(first) { return <Profile>.parse(pages); }`.
     let first = pages.first().map(String::as_str).unwrap_or("");
-    let _ = first;
+    if bob::BobProfile::detect(first) {
+        return bob::BobProfile.parse(pages);
+    }
     Err(ParseError::UnsupportedBank)
 }
