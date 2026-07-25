@@ -74,3 +74,38 @@ jobs:
         with:
           files: trackery_fi-*.apk
           generate_release_notes: true
+
+  windows-exe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/mobile/src-tauri
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+      - run: npm ci
+        working-directory: apps/mobile
+      - name: build desktop exe (no bundle)
+        working-directory: apps/mobile
+        run: npm run tauri build -- --no-bundle
+      - name: package exe with pdfium
+        shell: pwsh
+        run: |
+          $out = "pkg"
+          New-Item -ItemType Directory $out | Out-Null
+          Copy-Item apps/mobile/src-tauri/target/release/trackery-mobile.exe "$out/trackery_fi.exe"
+          curl.exe -fsSL -o pdfium.tgz https://github.com/bblanchon/pdfium-binaries/releases/latest/download/pdfium-win-x64.tgz
+          New-Item -ItemType Directory pdfium_ext | Out-Null
+          tar -xzf pdfium.tgz -C pdfium_ext
+          $dll = Get-ChildItem pdfium_ext -Recurse -Filter pdfium.dll | Select-Object -First 1
+          Copy-Item $dll.FullName "$out/pdfium.dll"
+          Compress-Archive -Path "$out/*" -DestinationPath "trackery_fi-windows-x64-$env:GITHUB_REF_NAME.zip"
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: trackery_fi-windows-x64-*.zip
+          generate_release_notes: true
