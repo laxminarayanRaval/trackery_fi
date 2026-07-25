@@ -1,0 +1,44 @@
+HDFC BANK Ltd.
+SYNTH TOWERS, GROUND FLOOR, FAKE ROAD, FAKETOWN 400001
+Statement of accounts
+MR SYNTHETIC CUSTOMER                              Account No : XXXX1234
+JOINT HOLDERS :
+From : 01/06/2026    To : 30/06/2026
+Account Branch : FAKETOWN MAIN                     Nomination : Registered
+RTGS/NEFT IFSC : HDFC0000XXX                       MICR : 400240XXX
+Cust ID : XXXX5678                                 A/C Open Date : 01/01/2020
+Currency : INR
+
+Date      Narration                                 Chq./Ref.No.      Value Dt  Withdrawal Amt. Deposit Amt.    Closing Balance
+01/06/26  UPI-SYNTH MERCHANT-synth.merchant@okhdfcba0000509912345678  01/06/26            450.00                       51,890.19
+          nk-YESB0000001-509912345678-PAYMENT FOR OR
+          DER
+01/06/26  NEFT CR-SBIN0000001-SYNTH EMPLOYER PVT LTDN152260099887766  01/06/26                         84,750.00     1,36,640.19
+          -SALARY JUN-XXXX1234
+02/06/26  UPI-SYNTH NAME-9999999001@ybl-UTIB0000001-0000515512345001  02/06/26                          1,200.00     1,37,840.19
+          515512345001-COLLECT
+03/06/26  ATW-412345XXXXXX7890-S1ACWD01-MUMBAI      0000000000000451  03/06/26         10,000.00                     1,27,840.19
+04/06/26  POS 412345XXXXXX7890 SYNTH STORES PVT L   0000000000004521  04/06/26          2,349.50                     1,25,490.69
+05/06/26  UPI-SYNTH GROCERY MART-synth.grocery@oksbi0000515698765432  05/06/26          3,215.75                     1,22,274.94
+          -SBIN0000002-515698765432-GROCERY PURCHASE
+07/06/26  IMPS-516712345678-SYNTH NAME-HDFC-XXXX12340000516712345678  07/06/26                          5,000.00     1,27,274.94
+          -REMARK
+08/06/26  NEFT DR-HDFC0000001-SYNTH LANDLORD-RENT JUN159260011223344  08/06/26         18,000.00                     1,09,274.94
+          N-XXXX1234
+09/06/26  UPI-SYNTH FUEL STATION-synth.fuel@okaxis-U0000515901234567  09/06/26          1,500.00                     1,07,774.94
+          TIB0000002-515901234567-FUEL
+10/06/26  EAW-412345XXXXXX7890-S1ANWD22-PUNE        0000000000000982  10/06/26          5,000.00                     1,02,774.94
+11/06/26  UPI-SYNTH TEA STALL-9999999002@paytm-PYTM00000516112345678  11/06/26             40.00                     1,02,734.94
+          123456-516112345678-TEA
+12/06/26  POS 412345XXXXXX7890 SYNTH ONLINE MKT     0000000000007612  12/06/26            899.00                     1,01,835.94
+14/06/26  UPI-SYNTH FRIEND-9999999003@okicici-ICIC000000516412345678  14/06/26                            320.50     1,02,156.44
+          00001-516412345678-SPLIT LUNCH
+15/06/26  IMPS-516612345999-SYNTH PARENT-SBIN-XXXX980000516612345999  15/06/26          2,500.00                       99,656.44
+          76-GIFT
+16/06/26  SMS CHARGES INCL GST APR-JUN 2026         MIR2617012345678  16/06/26             23.60                       99,632.84
+
+Page No .: 1
+HDFC BANK LIMITED *Closing balance includes funds earmarked for hold and uncleared funds
+Contents of this statement will be considered correct if no error is reported within 30 days of the receipt of statement.
+State account branch GSTN: 27XXXXX9999X9Z9
+Registered Office Address : HDFC Bank House, Synthetic Marg, Faketown 400013

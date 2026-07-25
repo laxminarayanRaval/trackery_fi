@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Sprint 1: pick a PDF, import it, list transactions.",
+  "windows": ["main"],
+  "permissions": ["core:default", "dialog:default", "fs:default"]
+}

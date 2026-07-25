@@ -1,0 +1,111 @@
+name: release-apk
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    env:
+      NDK_VERSION: 27.1.12297006
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+      - name: install SDK packages
+        run: sdkmanager "platforms;android-34" "build-tools;34.0.0" "ndk;${NDK_VERSION}"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+      - run: npm ci
+        working-directory: apps/mobile
+      - name: tauri android init
+        working-directory: apps/mobile
+        env:
+          NDK_HOME: ${{ env.ANDROID_SDK_ROOT }}/ndk/${{ env.NDK_VERSION }}
+        run: npm run tauri android init
+      - name: configure release keystore (only if provided)
+        working-directory: apps/mobile
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > src-tauri/gen/android/keystore.jks
+            cat > src-tauri/gen/android/keystore.properties <<EOF
+          storeFile=$(pwd)/src-tauri/gen/android/keystore.jks
+          storePassword=$KEYSTORE_PASSWORD
+          keyAlias=upload
+          keyPassword=$KEYSTORE_PASSWORD
+          EOF
+            echo "release keystore configured"
+          else
+            echo "no release keystore secret — building debug-signed APK"
+          fi
+      - name: build APK
+        working-directory: apps/mobile
+        env:
+          NDK_HOME: ${{ env.ANDROID_SDK_ROOT }}/ndk/${{ env.NDK_VERSION }}
+        run: |
+          if [ -f src-tauri/gen/android/keystore.properties ]; then
+            npm run tauri android build -- --apk
+          else
+            npm run tauri android build -- --apk --debug
+          fi
+      - name: collect APK
+        run: |
+          APK=$(find apps/mobile/src-tauri/gen/android -name "*.apk" | head -1)
+          echo "found: $APK"
+          cp "$APK" trackery_fi-${GITHUB_REF_NAME}.apk
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: trackery_fi-*.apk
+          generate_release_notes: true
+
+  windows-exe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/mobile/src-tauri
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+      - run: npm ci
+        working-directory: apps/mobile
+      - name: build desktop exe (no bundle)
+        working-directory: apps/mobile
+        run: npm run tauri build -- --no-bundle
+      - name: package exe with pdfium
+        shell: pwsh
+        run: |
+          $out = "pkg"
+          New-Item -ItemType Directory $out | Out-Null
+          Copy-Item apps/mobile/src-tauri/target/release/trackery-mobile.exe "$out/trackery_fi.exe"
+          curl.exe -fsSL -o pdfium.tgz https://github.com/bblanchon/pdfium-binaries/releases/latest/download/pdfium-win-x64.tgz
+          New-Item -ItemType Directory pdfium_ext | Out-Null
+          tar -xzf pdfium.tgz -C pdfium_ext
+          $dll = Get-ChildItem pdfium_ext -Recurse -Filter pdfium.dll | Select-Object -First 1
+          Copy-Item $dll.FullName "$out/pdfium.dll"
+          Compress-Archive -Path "$out/*" -DestinationPath "trackery_fi-windows-x64-$env:GITHUB_REF_NAME.zip"
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: trackery_fi-windows-x64-*.zip
+          generate_release_notes: true

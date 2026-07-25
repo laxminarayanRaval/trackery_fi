@@ -1,0 +1,21 @@
+BANK OF BARODA
+Account No  : XXXX1234    Period : 01/06/2026 to 30/06/2026
+
+DATE       NARRATION                                        CHQ.NO. WITHDRAWAL(DR)     DEPOSIT(CR)     BALANCE(INR)
+17/06/2026 UPI/DR/615317101010/SYNTH SUPERMART/YESB/synth.ma              2,780.90                        97,205.65
+18/06/2026 ATM-CASH/SELF/XXXX1234/FAKEPUR MAIN ROAD                       5,000.00                        92,205.65
+19/06/2026 UPI/DR/615319121212/SYNTH CAB SERVICES/OKAX/synth                348.00                        91,857.65
+20/06/2026 NEFT/N152262456789012/SYNTH CLIENT SOLUTIONS                                  25,000.00      1,16,857.65
+           LLP/INVOICE 2231
+21/06/2026 UPI/DR/615321131313/SYNTH FOOD DELIVERY/YESB/synt                456.25                      1,16,401.40
+22/06/2026 IMPS/P2A/615322141414/KAVITA SYNTH/KKBK/GIFT                   2,100.00                      1,14,301.40
+23/06/2026 POS/412345XXXXXX7890/SYNTH ELECTRONICS BAZAAR                 18,499.00                        95,802.40
+24/06/2026 UPI/CR/615324151515/DEV SYNTH/PYTM/dev.synth@payt                              1,500.00        97,302.40
+25/06/2026 SMS ALERT CHARGES APR-JUN 2026                                    17.70                        97,284.70
+26/06/2026 UPI/DR/615326161616/SYNTH BOOK HOUSE/SBIN/books.s                925.00                        96,359.70
+28/06/2026 NEFT/N152263765432109/SYNTH LANDLORD/RENT JUNE                14,500.00                        81,859.70
+30/06/2026 Int.Coll:SB INT PAID UPTO 30/06/2026                                             231.00        82,090.70
+
+Closing Balance : 82,090.70
+This is a computer generated statement and does not require signature.
+Page 2 of 2
