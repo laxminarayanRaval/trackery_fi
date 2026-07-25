@@ -1,0 +1,22 @@
+ICICI Bank Limited
+Account Number: XXXX1234 (INR) - SYNTH TOWN BRANCH
+DETAILED STATEMENT (contd.)
+
+Value Date Transaction Date Cheque Number Transaction Remarks Withdrawal Amount (INR ) Deposit Amount (INR ) Balance (INR )
+17-Jan-2026 17-Jan-2026 UPI/500117000015/Payment from Ph/synth.bookstore@okicici/ICIC/   640.00   0.00   1,02,405.85
+18-Jan-2026 18-Jan-2026 ATM/CASH WDL/XXXX1234/SYNTH MALL   2,000.00   0.00   1,00,405.85
+19-Jan-2026 19-Jan-2026 UPI/500119000017/Payment from Ph/synth.buyer@okhdfc/HDFC/   0.00   3,500.00   1,03,905.85
+20-Jan-2026 20-Jan-2026 ECSRTNCHG190126_SR500120000018+GST   590.00   0.00   1,03,315.85
+21-Jan-2026 21-Jan-2026 NEFT-HDFC0000002-SYNTH CONSULTING LL   0.00   22,000.00   1,25,315.85
+P-INVOICE 42
+22-Jan-2026 22-Jan-2026 UPI/500122000020/Payment from Ph/synth.streaming@ybl/YESB/   499.00   0.00   1,24,816.85
+23-Jan-2026 23-Jan-2026 BIL/INFT/500123000021/SYNTH CREDIT CARD/PMT   8,432.10   0.00   1,16,384.75
+24-Jan-2026 24-Jan-2026 VIN/SYNTH PETROL PUMP/412345XXXXXX7890/   3,000.00   0.00   1,13,384.75
+26-Jan-2026 26-Jan-2026 UPI/500126000023/Payment from Ph/synth.restaurant@okaxis/UTIB/   1,245.00   0.00   1,12,139.75
+28-Jan-2026 28-Jan-2026 MMT/IMPS/500128000024/LOAN EMI/SYNTH FINANCE/ICIC   12,500.00   0.00   99,639.75
+30-Jan-2026 30-Jan-2026 UPI/500130000025/Payment from Ph/synth.roommate@paytm/PYTM/   0.00   2,750.00   1,02,389.75
+31-Jan-2026 31-Jan-2026 INT.PD:XXXX1234:01-10-2025 to 31-12-2025   0.00   812.00   1,03,201.75
+
+Legends: VIN - Visa Money Transfer, BIL - Internet Bill Payment
+Page 2 of 2
+This is a system generated statement and does not require any signature.

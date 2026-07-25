@@ -11,6 +11,7 @@
 
 pub mod bob;
 pub mod hdfc;
+pub mod icici;
 
 use crate::model::{Bank, Transaction};
 
@@ -44,6 +45,9 @@ pub fn parse_statement(pages: &[String]) -> Result<Vec<Transaction>, ParseError>
     }
     if hdfc::HdfcProfile::detect(first) {
         return hdfc::HdfcProfile.parse(pages);
+    }
+    if icici::IciciProfile::detect(first) {
+        return icici::IciciProfile.parse(pages);
     }
     Err(ParseError::UnsupportedBank)
 }
