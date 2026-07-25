@@ -4,5 +4,7 @@
 //! narration decomposition, and encrypted storage. No I/O with the
 //! outside world — everything runs on-device.
 
+pub mod db;
+pub mod model;
 pub mod money;
 pub mod pdf;
