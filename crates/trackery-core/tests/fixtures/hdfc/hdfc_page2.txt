@@ -1,0 +1,35 @@
+HDFC BANK Ltd.
+Statement of accounts
+MR SYNTHETIC CUSTOMER                              Account No : XXXX1234
+From : 01/06/2026    To : 30/06/2026
+
+Date      Narration                                 Chq./Ref.No.      Value Dt  Withdrawal Amt. Deposit Amt.    Closing Balance
+18/06/26  UPI-SYNTH ELECTRIC SUPPLY CO-synth.power@o0000517012345678  18/06/26          2,780.00                       96,852.84
+          khdfcbank-HDFC0000009-517012345678-ELECTRI
+          CITY BILL JUN
+19/06/26  NEFT CR-ICIC0000002-SYNTH INSURANCE CO LTDN170260055667788  19/06/26                          4,150.25     1,01,003.09
+          -REFUND-XXXX1234
+20/06/26  UPI-SYNTH PHARMACY-synth.pharma@ybl-YESB000000517112345678  20/06/26            640.00                     1,00,363.09
+          00002-517112345678-MEDICINES
+21/06/26  ATW-412345XXXXXX7890-S1ACWD09-DELHI       0000000000001203  21/06/26          3,000.00                       97,363.09
+22/06/26  POS 412345XXXXXX7890 SYNTH CAFE AND BAK   0000000000008841  22/06/26            458.00                       96,905.09
+23/06/26  UPI-SYNTH CLIENT LLP-synth.client@okhdfcba0000517412345678  23/06/26                         12,000.00     1,08,905.09
+          nk-HDFC0000010-517412345678-INVOICE 88
+24/06/26  UPI-SYNTH BOOK HOUSE-synth.books@oksbi-SBI0000517512345678  24/06/26            785.40                     1,08,119.69
+          N0000003-517512345678-BOOKS
+25/06/26  IMPS-517612345888-SYNTH COUSIN-ICIC-XXXX560000517612345888  25/06/26                          1,750.00     1,09,869.69
+          78-REPAY
+26/06/26  NEFT DR-UTIB0000003-SYNTH MUTUAL FUND-SIP-N177260011998877  26/06/26         10,000.00                       99,869.69
+          JUN-XXXX1234
+27/06/26  UPI-SYNTH TAXI-9999999004@okaxis-UTIB000000000517812345678  27/06/26            245.00                       99,624.69
+          04-517812345678-RIDE
+28/06/26  POS 412345XXXXXX7890 SYNTH APPAREL STOR   0000000000009907  28/06/26          1,999.00                       97,625.69
+30/06/26  CREDIT INTEREST CAPITALISED               000000000000000   30/06/26                            312.00       97,937.69
+
+STATEMENT SUMMARY :-
+Opening Balance      Dr Count     Cr Count     Debits            Credits           Closing Bal
+52,340.19            19           8            63,885.25         1,09,482.75       97,937.69
+Generated On: 01/07/2026
+Page No .: 2
+HDFC BANK LIMITED *Closing balance includes funds earmarked for hold and uncleared funds
+Contents of this statement will be considered correct if no error is reported within 30 days of the receipt of statement.

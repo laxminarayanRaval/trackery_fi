@@ -10,6 +10,7 @@
 //! Sprint 1, see BACKLOG.md).
 
 pub mod bob;
+pub mod hdfc;
 
 use crate::model::{Bank, Transaction};
 
@@ -40,6 +41,9 @@ pub fn parse_statement(pages: &[String]) -> Result<Vec<Transaction>, ParseError>
     let first = pages.first().map(String::as_str).unwrap_or("");
     if bob::BobProfile::detect(first) {
         return bob::BobProfile.parse(pages);
+    }
+    if hdfc::HdfcProfile::detect(first) {
+        return hdfc::HdfcProfile.parse(pages);
     }
     Err(ParseError::UnsupportedBank)
 }
