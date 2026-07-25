@@ -1,0 +1,104 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  font-size: 14px;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  padding: 8px;
+  gap: 8px;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+button {
+  font: inherit;
+  padding: 6px 12px;
+}
+
+.password-box {
+  border: 1px solid #999;
+  padding: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.password-box p {
+  margin: 0;
+  flex-basis: 100%;
+}
+
+.password-box input {
+  font: inherit;
+  padding: 6px;
+}
+
+.error {
+  margin: 0;
+  color: #b00020;
+}
+
+.notice {
+  margin: 0;
+  color: #1a6b1a;
+}
+
+.status {
+  color: #666;
+}
+
+/* One scroll container for both axes; the virtualizer reads its scrollTop. */
+.table-scroll {
+  flex: 1;
+  overflow: auto;
+  border: 1px solid #ccc;
+}
+
+.table {
+  min-width: 980px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 95px 260px 170px 140px 115px 115px 60px 65px;
+  border-bottom: 1px solid #eee;
+}
+
+.row.head {
+  position: sticky;
+  top: 0;
+  background: #f4f4f4;
+  font-weight: 600;
+  border-bottom: 1px solid #ccc;
+  z-index: 1;
+}
+
+.cell {
+  padding: 8px 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cell.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.empty {
+  padding: 16px;
+  color: #666;
+}
