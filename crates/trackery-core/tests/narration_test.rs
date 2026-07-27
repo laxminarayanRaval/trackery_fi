@@ -81,6 +81,26 @@ fn bob_upi() {
     }
 }
 
+/// bob World app export narrations carry no counterparty name field at all —
+/// only a reference and the counterparty VPA are recoverable.
+#[test]
+fn bob_upi_bob_world_app_has_no_name() {
+    for (n, vpa, r) in [
+        (
+            "UPI/900000000090/14:22:10/UPI/synth.merchant@ybl",
+            "synth.merchant@ybl",
+            "900000000090",
+        ),
+        (
+            "UPI/900000000091/09:05:47/UPI/synthsender@i",
+            "synthsender@i",
+            "900000000091",
+        ),
+    ] {
+        check(Bank::Bob, n, TxnMode::Upi, "", vpa, r);
+    }
+}
+
 #[test]
 fn bob_imps() {
     for (n, name, r) in [
@@ -556,13 +576,15 @@ fn parse_statement_enriches_fixture_counterparties() {
     };
 
     let bob = trackery_core::banks::parse_statement(&pages("bob")).expect("bob parses");
-    let imps = find(&bob, "MEENA SYNTH");
-    let cp = imps.counterparty.expect("bob imps row decomposes");
-    assert_eq!(cp.mode, TxnMode::Imps);
-    assert_eq!(cp.name.as_deref(), Some("MEENA SYNTH"));
-    assert_eq!(cp.reference.as_deref(), Some("615308444444"));
-    // Truncated narration (no VPA survives the column cut) must stay None.
-    assert_eq!(find(&bob, "SYNTH GROCERY MART").counterparty, None);
+    let upi = find(&bob, "synth.merchant1@ybl");
+    let cp = upi.counterparty.expect("bob upi row decomposes");
+    assert_eq!(cp.mode, TxnMode::Upi);
+    // bob World app narrations carry no counterparty name field at all.
+    assert_eq!(cp.name, None);
+    assert_eq!(cp.vpa.as_deref(), Some("synth.merchant1@ybl"));
+    assert_eq!(cp.reference.as_deref(), Some("900000000001"));
+    // Interest-credit narration matches no BOB rule and must stay None.
+    assert_eq!(find(&bob, "Int.Pd").counterparty, None);
 
     let hdfc = trackery_core::banks::parse_statement(&pages("hdfc")).expect("hdfc parses");
     let upi = find(&hdfc, "synth.merchant@okhdfcbank");

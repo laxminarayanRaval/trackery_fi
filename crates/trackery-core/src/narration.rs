@@ -19,6 +19,13 @@ struct Rule {
 
 /// (pattern, mode) tables, tried in order. First match wins.
 const BOB_RULES: &[(&str, TxnMode)] = &[
+    // bob World app export: `UPI/<ref>/<HH:MM:SS>/UPI/<vpa>` — no
+    // counterparty name field exists in this narration at all, only ref+vpa.
+    (
+        r"^UPI/(?P<ref>\d+)/[\d:]+/UPI/\s*(?P<vpa>[^/@\s]+@[A-Za-z][\w.]*)(?:/.*)?$",
+        TxnMode::Upi,
+    ),
+    // Older/alternate template: `UPI/DR|CR/<ref>/<name>/<bank>/<vpa>`.
     // `\s*` before the VPA: multi-line narrations are re-joined with a space,
     // which can land right before the continuation-line VPA.
     (

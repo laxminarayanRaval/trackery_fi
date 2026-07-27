@@ -34,20 +34,20 @@ fn detects_bob_and_not_others() {
 #[test]
 fn parses_full_statement() {
     let txns = BobProfile.parse(&fixture_pages("bob")).expect("parse bob");
-    assert_eq!(txns.len(), 26);
+    assert_eq!(txns.len(), 13);
 
     let first = &txns[0];
     assert_eq!(
         first.date,
-        NaiveDate::from_ymd_opt(2026, 6, 1).expect("date")
+        NaiveDate::from_ymd_opt(2026, 1, 1).expect("date")
     );
     assert_eq!(
         first.narration_raw,
-        "UPI/DR/615301111111/SYNTH GROCERY MART/YESB/synth"
+        "UPI/900000000001/10:15:22/UPI/synth.merchant1@ybl"
     );
     assert_eq!(first.direction, Direction::Debit);
-    assert_eq!(first.amount_paise, 1_250_00);
-    assert_eq!(first.balance_paise, Some(43_981_50));
+    assert_eq!(first.amount_paise, 250_00);
+    assert_eq!(first.balance_paise, Some(4_750_00));
     assert_eq!(first.bank, Some(Bank::Bob));
     assert_eq!(first.account_id, Uuid::nil());
     assert_eq!(first.origin, TransactionOrigin::StatementImport);
@@ -56,25 +56,28 @@ fn parses_full_statement() {
     assert_eq!(first.category_id, None);
     assert!(!first.deleted);
 
-    let last = &txns[25];
+    let last = &txns[12];
     assert_eq!(
         last.date,
-        NaiveDate::from_ymd_opt(2026, 6, 30).expect("date")
+        NaiveDate::from_ymd_opt(2026, 1, 28).expect("date")
     );
-    assert_eq!(last.narration_raw, "Int.Coll:SB INT PAID UPTO 30/06/2026");
+    assert_eq!(
+        last.narration_raw,
+        "UPI/900000000012/14:44:44/UPI/synthgift14@okicici"
+    );
     assert_eq!(last.direction, Direction::Credit);
-    assert_eq!(last.amount_paise, 231_00);
-    assert_eq!(last.balance_paise, Some(82_090_70));
+    assert_eq!(last.amount_paise, 5_00);
+    assert_eq!(last.balance_paise, Some(9_755_00));
     assert_eq!(last.bank, Some(Bank::Bob));
 }
 
-/// Every parsed date lies inside the statement period — proves DD/MM/YYYY
-/// was normalized (a MM/DD mixup would throw dates outside June).
+/// Every parsed date lies inside the statement period — proves DD-MM-YYYY
+/// was normalized (a MM/DD mixup would throw dates outside January).
 #[test]
 fn dates_are_within_statement_period() {
     let txns = BobProfile.parse(&fixture_pages("bob")).expect("parse bob");
-    let from = NaiveDate::from_ymd_opt(2026, 6, 1).expect("date");
-    let to = NaiveDate::from_ymd_opt(2026, 6, 30).expect("date");
+    let from = NaiveDate::from_ymd_opt(2026, 1, 1).expect("date");
+    let to = NaiveDate::from_ymd_opt(2026, 1, 31).expect("date");
     for t in &txns {
         assert!(
             (from..=to).contains(&t.date),
@@ -103,17 +106,22 @@ fn running_balance_is_consistent() {
     }
 }
 
-/// BOB wraps long narrations onto indented continuation lines with no
-/// date/amount; the parser must join them onto the preceding transaction.
+/// BOB wraps long narrations onto undated continuation lines, sometimes
+/// mid-token and sometimes as a lone stray character; the parser must join
+/// them onto the preceding transaction with no separator.
 #[test]
 fn multi_line_narrations_are_joined() {
     let txns = BobProfile.parse(&fixture_pages("bob")).expect("parse bob");
     assert_eq!(
-        txns[3].narration_raw,
-        "NEFT/N152260123456789/SYNTH EMPLOYER PVT LTD/SALARY MAY 2026"
+        txns[1].narration_raw,
+        "UPI/900000000002/11:20:10/UPI/synth-merchant2-abc@axl"
     );
     assert_eq!(
-        txns[17].narration_raw,
-        "NEFT/N152262456789012/SYNTH CLIENT SOLUTIONS LLP/INVOICE 2231"
+        txns[2].narration_raw,
+        "UPI/900000000003/12:05:44/UPI/synthqr3@ptys/"
+    );
+    assert_eq!(
+        txns[8].narration_raw,
+        "UPI/900000000008/10:00:00/UPI/synth-ref10-cd@ybl"
     );
 }
