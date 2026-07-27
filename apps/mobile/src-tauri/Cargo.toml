@@ -15,7 +15,10 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+# devtools: ships a working F12/right-click "Inspect" console in release
+# builds too, not just dev — otherwise a shipped exe has no way to see what
+# an import failure actually hit.
+tauri = { version = "2", features = ["devtools"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 serde = { version = "1", features = ["derive"] }

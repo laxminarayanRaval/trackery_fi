@@ -197,13 +197,63 @@ fn list_transactions(app: AppHandle) -> Result<Vec<TxnRow>, ImportError> {
     })
 }
 
+#[derive(Serialize)]
+struct DetectionRow {
+    bank: &'static str,
+    matched: bool,
+}
+
+/// Read-only companion to `import_statement`: opens the same file and reports
+/// which bank (if any) matched and a preview of what was actually extracted,
+/// so an "unsupported_bank" or "malformed_statement" failure can be explained
+/// from the app's own devtools console instead of guessed at. Never persists
+/// anything.
+#[derive(Serialize)]
+struct Diagnostics {
+    page_count: usize,
+    first_page_chars: usize,
+    detections: Vec<DetectionRow>,
+    first_page_preview: String,
+}
+
+#[tauri::command]
+fn diagnose_statement(
+    app: AppHandle,
+    path: String,
+    password: Option<String>,
+) -> Result<Diagnostics, ImportError> {
+    let file_path: FilePath = path
+        .parse()
+        .map_err(|e: std::convert::Infallible| ImportError::other(e))?;
+    let bytes = app.fs().read(file_path).map_err(ImportError::other)?;
+    let pages = trackery_core::pdf::open_statement(&bytes, password.as_deref())?;
+    let d = trackery_core::banks::diagnose(&pages);
+    Ok(Diagnostics {
+        page_count: d.page_count,
+        first_page_chars: d.first_page_chars,
+        detections: d
+            .detections
+            .into_iter()
+            .map(|b| DetectionRow {
+                bank: b.bank,
+                matched: b.matched,
+            })
+            .collect(),
+        first_page_preview: d.first_page_preview,
+    })
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .manage(AppDb(Mutex::new(None)))
-        .invoke_handler(tauri::generate_handler![import_statement, list_transactions])
+        .invoke_handler(tauri::generate_handler![
+            import_statement,
+            list_transactions,
+            diagnose_statement
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

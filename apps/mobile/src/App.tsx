@@ -94,6 +94,18 @@ export default function App() {
         setPassword("");
         setPwWrong(false);
         setError(describe(e));
+        console.error("import_statement failed:", e);
+        // Best-effort: dump why detection/parsing failed to this window's
+        // devtools console (F12) — the only visibility into a failed import
+        // without shipping statement text anywhere off-device.
+        if (isImportError(e) && e.kind !== "corrupt_pdf") {
+          try {
+            const diag = await invoke("diagnose_statement", { path, password: pw ?? null });
+            console.error("statement diagnostics:", diag);
+          } catch (diagErr) {
+            console.error("diagnose_statement also failed:", diagErr);
+          }
+        }
       }
     } finally {
       setBusy(false);
