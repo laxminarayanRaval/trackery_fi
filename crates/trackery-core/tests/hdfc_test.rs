@@ -36,47 +36,61 @@ fn detects_hdfc_but_not_unsupported() {
 #[test]
 fn parses_full_statement() {
     let txns = parse_statement(&fixture_pages("hdfc")).expect("hdfc statement should parse");
-    assert_eq!(txns.len(), 27);
+    assert_eq!(txns.len(), 7);
 
-    // First row: wrapped UPI debit — narration reassembled across 3 lines.
+    // First row: single-line credit. Real HDFC exports print only whichever
+    // of withdrawal/deposit applies — never both — so direction comes from
+    // the balance delta against the statement's declared opening balance.
     let first = &txns[0];
-    assert_eq!(first.date, date(2026, 6, 1));
+    assert_eq!(first.date, date(2026, 1, 1));
     assert_eq!(
         first.narration_raw,
-        "UPI-SYNTH MERCHANT-synth.merchant@okhdfcbank-YESB0000001-509912345678-PAYMENT FOR ORDER"
+        "CHQ DEP - CTS CLG1 - FAKE ROAD-WBO: 0000000000000099 01/01/26"
     );
-    assert_eq!(first.direction, Direction::Debit);
-    assert_eq!(first.amount_paise, 45_000);
-    assert_eq!(first.balance_paise, Some(51_890_19));
+    assert_eq!(first.direction, Direction::Credit);
+    assert_eq!(first.amount_paise, 5_000_00);
+    assert_eq!(first.balance_paise, Some(15_000_00));
     common_fields(first);
 
-    // Last row: interest credit on the last page.
-    let last = &txns[26];
-    assert_eq!(last.date, date(2026, 6, 30));
-    assert_eq!(last.narration_raw, "CREDIT INTEREST CAPITALISED");
+    // A row whose continuation lines carry on *after* the amount/balance
+    // pair has already appeared — real HDFC exports interleave them.
+    let neft = &txns[4];
+    assert_eq!(neft.date, date(2026, 1, 15));
+    assert_eq!(
+        neft.narration_raw,
+        "NEFT DR-FAKE0001234-SYNTHNAMECONTINUED0000516600000001 15/01/26  UATION TEXT-NETBANK,MORECONT-FAKE0001234-LASTPART"
+    );
+    assert_eq!(neft.direction, Direction::Debit);
+    assert_eq!(neft.amount_paise, 9_000_00);
+    assert_eq!(neft.balance_paise, Some(24_525_00));
+    common_fields(neft);
+
+    // Last row.
+    let last = &txns[6];
+    assert_eq!(last.date, date(2026, 1, 31));
+    assert_eq!(last.narration_raw, "SALARY 0000000000509999 31/01/26");
     assert_eq!(last.direction, Direction::Credit);
-    assert_eq!(last.amount_paise, 31_200);
-    assert_eq!(last.balance_paise, Some(97_937_69));
+    assert_eq!(last.amount_paise, 12_000_00);
+    assert_eq!(last.balance_paise, Some(34_525_00));
     common_fields(last);
 
-    // DD/MM/YY normalizes to 20xx ISO dates.
-    assert_eq!(txns[3].date, date(2026, 6, 3)); // 03/06/26 ATM withdrawal
-    assert_eq!(txns[1].date, date(2026, 6, 1)); // 01/06/26 NEFT CR salary
-
     // Running balance is consistent across every consecutive pair,
-    // including the page 1 → page 2 boundary.
-    for pair in txns.windows(2) {
-        let (prev, next) = (&pair[0], &pair[1]);
-        let signed = match next.direction {
-            Direction::Credit => next.amount_paise,
-            Direction::Debit => -next.amount_paise,
+    // seeded from the statement's declared opening balance (10,000.00,
+    // parsed from the summary row on page 2).
+    let opening = 10_000_00;
+    let mut prev_balance = opening;
+    for t in &txns {
+        let signed = match t.direction {
+            Direction::Credit => t.amount_paise,
+            Direction::Debit => -t.amount_paise,
         };
         assert_eq!(
-            prev.balance_paise.expect("balance") + signed,
-            next.balance_paise.expect("balance"),
-            "balance mismatch after {:?}",
-            next.narration_raw
+            prev_balance + signed,
+            t.balance_paise.expect("balance"),
+            "balance mismatch at {:?}",
+            t.narration_raw
         );
+        prev_balance = t.balance_paise.expect("balance");
     }
 }
 
