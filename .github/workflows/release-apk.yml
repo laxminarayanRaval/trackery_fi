@@ -36,7 +36,7 @@ jobs:
         working-directory: apps/mobile
         env:
           NDK_HOME: ${{ env.ANDROID_SDK_ROOT }}/ndk/${{ env.NDK_VERSION }}
-        run: npm run tauri android init
+        run: npx tauri android init
       - name: configure release keystore (only if provided)
         working-directory: apps/mobile
         env:
@@ -61,9 +61,9 @@ jobs:
           NDK_HOME: ${{ env.ANDROID_SDK_ROOT }}/ndk/${{ env.NDK_VERSION }}
         run: |
           if [ -f src-tauri/gen/android/keystore.properties ]; then
-            npm run tauri android build -- --apk
+            npx tauri android build --apk
           else
-            npm run tauri android build -- --apk --debug
+            npx tauri android build --apk --debug
           fi
       - name: collect APK
         run: |
@@ -92,7 +92,7 @@ jobs:
         working-directory: apps/mobile
       - name: build desktop exe (no bundle)
         working-directory: apps/mobile
-        run: npm run tauri build -- --no-bundle
+        run: npx tauri build --no-bundle
       - name: package exe with pdfium
         shell: pwsh
         run: |
