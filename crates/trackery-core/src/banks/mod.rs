@@ -62,3 +62,55 @@ fn detect_and_parse(pages: &[String]) -> Result<Vec<Transaction>, ParseError> {
     }
     Err(ParseError::UnsupportedBank)
 }
+
+/// Longest first-page text we'll surface in a diagnostic dump. The full page
+/// (real narrations, account numbers) never leaves the device — this exists
+/// purely so a stuck import can be inspected on-screen or in an example run,
+/// not logged or transmitted anywhere.
+const PREVIEW_CHARS: usize = 1000;
+
+/// Per-bank detection result, for surfacing *why* a statement wasn't matched.
+#[derive(Debug, Clone)]
+pub struct BankDetection {
+    pub bank: &'static str,
+    pub matched: bool,
+}
+
+/// Diagnostic snapshot of a statement that failed (or is about to be tried)
+/// against the bank registry. Never persisted — for on-screen/console
+/// inspection when `UnsupportedBank` or a parse failure needs explaining.
+#[derive(Debug, Clone)]
+pub struct StatementDiagnostics {
+    pub page_count: usize,
+    pub first_page_chars: usize,
+    pub detections: Vec<BankDetection>,
+    /// First [`PREVIEW_CHARS`] characters of the first page's extracted text.
+    pub first_page_preview: String,
+}
+
+/// Sniff `pages` against every registered bank profile without parsing,
+/// reporting which (if any) matched. Used by the diagnostics command/example
+/// so a failed import can be explained instead of just reported as
+/// "unsupported".
+pub fn diagnose(pages: &[String]) -> StatementDiagnostics {
+    let first = pages.first().map(String::as_str).unwrap_or("");
+    StatementDiagnostics {
+        page_count: pages.len(),
+        first_page_chars: first.chars().count(),
+        detections: vec![
+            BankDetection {
+                bank: "BOB",
+                matched: bob::BobProfile::detect(first),
+            },
+            BankDetection {
+                bank: "HDFC",
+                matched: hdfc::HdfcProfile::detect(first),
+            },
+            BankDetection {
+                bank: "ICICI",
+                matched: icici::IciciProfile::detect(first),
+            },
+        ],
+        first_page_preview: first.chars().take(PREVIEW_CHARS).collect(),
+    }
+}
