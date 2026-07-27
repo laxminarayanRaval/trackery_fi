@@ -595,11 +595,11 @@ fn parse_statement_enriches_fixture_counterparties() {
     assert_eq!(cp.reference.as_deref(), Some("509912345678"));
 
     let icici = trackery_core::banks::parse_statement(&pages("icici")).expect("icici parses");
-    let upi = find(&icici, "synth.grocer@paytm");
+    let upi = find(&icici, "synth.friend2@paytm");
     let cp = upi.counterparty.expect("icici upi row decomposes");
     assert_eq!(cp.mode, TxnMode::Upi);
-    assert_eq!(cp.vpa.as_deref(), Some("synth.grocer@paytm"));
-    assert_eq!(cp.reference.as_deref(), Some("500100000001"));
+    assert_eq!(cp.vpa.as_deref(), Some("synth.friend2@paytm"));
+    assert_eq!(cp.reference.as_deref(), Some("900000000006"));
 }
 
 /// No panic on arbitrary bytes — decompose must be total.

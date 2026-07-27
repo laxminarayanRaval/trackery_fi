@@ -1,3 +1,6 @@
+//! Underscores deliberately mirror Indian digit grouping (rupees_paise).
+#![allow(clippy::inconsistent_digit_grouping)]
+
 use trackery_core::banks::icici::IciciProfile;
 use trackery_core::banks::{parse_statement, BankProfile};
 use trackery_core::model::{Bank, Direction, TransactionOrigin};
@@ -21,70 +24,76 @@ fn fixture_pages(dir: &str) -> Vec<String> {
 #[test]
 fn parses_full_icici_statement() {
     let txns = parse_statement(&fixture_pages("icici")).expect("parse icici fixture");
-    assert_eq!(txns.len(), 26);
+    assert_eq!(txns.len(), 7);
 
+    // Real ICICI net-banking exports print no separate withdrawal/deposit
+    // columns — a row ends in one amount + balance, so direction comes from
+    // the balance delta, seeded by the table's own B/F row (10,000.00) and
+    // not the `Opening`/first-row's own amount.
     let first = &txns[0];
     assert_eq!(first.date.to_string(), "2026-01-01");
     assert_eq!(
         first.narration_raw,
-        "UPI/500100000001/Payment from Ph/synth.grocer@paytm/YESB/"
+        "UPI/SYNTH MERCHANT/synthmerchant/UPI/StateBank/900000000001/SYNfake111122223333cd6e32222f93c/SYNTH MERCHANT PVT LTD"
     );
     assert_eq!(first.direction, Direction::Debit);
-    assert_eq!(first.amount_paise, 25_000);
-    assert_eq!(first.balance_paise, Some(4_975_000));
+    assert_eq!(first.amount_paise, 300_00);
+    assert_eq!(first.balance_paise, Some(9_700_00));
     assert_eq!(first.bank, Some(Bank::Icici));
     assert_eq!(first.origin, TransactionOrigin::StatementImport);
 
-    let last = &txns[25];
-    assert_eq!(last.date.to_string(), "2026-01-31");
+    let last = &txns[6];
+    assert_eq!(last.date.to_string(), "2026-01-20");
     assert_eq!(
         last.narration_raw,
         "INT.PD:XXXX1234:01-10-2025 to 31-12-2025"
     );
     assert_eq!(last.direction, Direction::Credit);
-    assert_eq!(last.amount_paise, 81_200);
-    assert_eq!(last.balance_paise, Some(10_320_175));
+    assert_eq!(last.amount_paise, 81_20);
+    assert_eq!(last.balance_paise, Some(24_004_20));
     assert_eq!(last.bank, Some(Bank::Icici));
 }
 
-/// DD-Mon-YYYY normalizes to ISO, and `date` comes from the Transaction Date
-/// column (salary row: value date 04-Jan-2026, transaction date 05-Jan-2026).
+/// DD-MM-YYYY (numeric, not DD-Mon-YYYY) normalizes to ISO.
 #[test]
 fn normalizes_dd_mon_yyyy_using_transaction_date() {
     let txns = parse_statement(&fixture_pages("icici")).expect("parse icici fixture");
-    assert_eq!(txns[3].date.to_string(), "2026-01-05");
+    assert_eq!(txns[2].date.to_string(), "2026-01-05");
 }
 
 #[test]
 fn running_balance_is_consistent() {
     let txns = parse_statement(&fixture_pages("icici")).expect("parse icici fixture");
-    for pair in txns.windows(2) {
-        let prev = pair[0].balance_paise.expect("balance present");
-        let signed = match pair[1].direction {
-            Direction::Debit => -pair[1].amount_paise,
-            Direction::Credit => pair[1].amount_paise,
+    let mut prev_balance = 10_000_00; // the fixture's B/F row
+    for t in &txns {
+        let signed = match t.direction {
+            Direction::Debit => -t.amount_paise,
+            Direction::Credit => t.amount_paise,
         };
         assert_eq!(
-            pair[1].balance_paise,
-            Some(prev + signed),
+            t.balance_paise,
+            Some(prev_balance + signed),
             "balance mismatch after {:?}",
-            pair[1].narration_raw
+            t.narration_raw
         );
+        prev_balance = t.balance_paise.expect("balance present");
     }
 }
 
-/// ICICI wraps long Transaction Remarks across lines mid-token; the parser
-/// must join continuation lines onto the preceding row's narration.
+/// ICICI wraps long Transaction Remarks across lines mid-token, sometimes
+/// across a page boundary; the parser must join continuation lines onto the
+/// preceding row's narration with no separator.
 #[test]
 fn joins_wrapped_remarks() {
     let txns = parse_statement(&fixture_pages("icici")).expect("parse icici fixture");
     assert_eq!(
-        txns[6].narration_raw,
-        "UPI/500108000007/Payment from Ph/synth.electricity@billdesk/ICIC/"
+        txns[2].narration_raw,
+        "UPI/SYNTH SALARY/synthsalary/Salary Credit/YESBANK/900000000003/SYNfakeaaaa2222bbbb3333cccc4444/SYNTH EMPLOYER PVT LTD"
     );
+    // Row 4 (page 2, index 3) wraps across three continuation lines.
     assert_eq!(
-        txns[18].narration_raw,
-        "NEFT-HDFC0000002-SYNTH CONSULTING LLP-INVOICE 42"
+        txns[3].narration_raw,
+        "UPI/SYNTH FRIEND/synthfriend/UPI/Bank OfBaroda/900000000004/SYNfakedddd5555eeee6666ffff7777/SYNTH FRIEND NAME"
     );
 }
 
