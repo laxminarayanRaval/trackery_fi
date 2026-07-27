@@ -17,6 +17,12 @@ path proven**. One open item:
   `trackery-android-home:/root`, mount the worktree at /w, sdkmanager NDK 27.1.12297006
   + rustup + node 22 + `npx tauri android init` + `npx tauri android build --apk --debug
   --target aarch64`. (First NDK download corrupted once; the SDK volume now caches it.)
+- Repro progress at session end: init generates fine; build reaches the Rust
+  cross-compile and dies at `linker cc not found` — the image lacks host gcc, so add
+  `apt-get install -y build-essential` and rerun. That linker gap is container-only
+  (CI runners have gcc), so the actual CI failure is still unconfirmed — but the same
+  rerun will surface it. `src-tauri/gen/` in the worktree is repro-generated, untracked;
+  ignore or delete unless committing gen/android becomes the fix.
 - After fixing: commit, push, delete + re-push tag v0.1.0, verify the release gains
   `trackery_fi-v0.1.0.apk`. Consider committing `src-tauri/gen/android/` if init is the culprit.
 
