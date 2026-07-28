@@ -138,12 +138,30 @@ export default function App() {
 
   return (
     <main className="app">
-      <div className="toolbar">
-        <button onClick={() => void pick()} disabled={busy || pendingPath !== null}>
-          Pick statement PDF
-        </button>
-        {busy && <span className="status">Working…</span>}
+      <div className="brand-bar">
+        <div className="brand">
+          <svg className="brand-mark" viewBox="0 0 1024 1024" aria-hidden="true">
+            <rect width="1024" height="1024" fill="#241F1B" />
+            <path
+              d="M 372 300 H 652 M 372 300 V 420 M 372 420 H 612 M 452 420 L 700 720"
+              fill="none"
+              stroke="#B9542E"
+              strokeWidth="72"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          <span className="brand-name">trackery_fi</span>
+        </div>
+        <div className="toolbar">
+          <button onClick={() => void pick()} disabled={busy || pendingPath !== null}>
+            Pick statement PDF
+          </button>
+          {busy && <span className="status">Working…</span>}
+        </div>
       </div>
+
+      <div className="content">
 
       {pendingPath !== null && (
         <form
@@ -220,6 +238,7 @@ export default function App() {
             </div>
           )}
         </div>
+      </div>
       </div>
     </main>
   );
