@@ -14,6 +14,12 @@
 //!   continuations join with no separator. Debit/credit are each an amount
 //!   or `-`, and the pair sometimes sits hard against the narration with no
 //!   separating space.
+//!
+//! Debit/credit and balance are both read independently from the printed
+//! text, so every row's balance is cross-checked against the running total
+//! (seeded from the Opening Balance row). If a future template reorders
+//! those columns the two stop reconciling — this fails loudly instead of
+//! silently returning transactions with the wrong amount or direction.
 
 use std::sync::OnceLock;
 
@@ -75,6 +81,23 @@ fn row_start(line: &str) -> Option<&str> {
     date_led.then_some(rest)
 }
 
+/// An Indian-grouped money amount, e.g. `1,23,456.78` or `27.00`.
+fn money_re() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"\d[\d,]*\.\d{2}").expect("static regex"))
+}
+
+/// Does `line` start with a money-shaped token? A continuation line
+/// starting this way is the debit/credit pair, not a mid-word narration
+/// wrap — joining it with no separator risks fusing a digit off the end of
+/// the previous line's reference number onto the front of the amount
+/// (`...b4` + `500.00` reads back as `4500.00`), so it gets a real boundary.
+fn starts_with_money(line: &str) -> bool {
+    money_re()
+        .find(line.trim_start())
+        .is_some_and(|m| m.start() == 0)
+}
+
 /// Header/footer text repeated on every page — never a continuation line.
 fn is_furniture(line: &str) -> bool {
     let t = line.trim();
@@ -129,17 +152,33 @@ impl BankProfile for BobProfile {
                     if row_start(next).is_some() || is_furniture(next) {
                         break;
                     }
-                    joined.push_str(lines.next().expect("peeked Some"));
+                    let cont = lines.next().expect("peeked Some");
+                    if starts_with_money(cont) {
+                        joined.push(' ');
+                    }
+                    joined.push_str(cont);
                     line_no += 1;
                 }
                 rows.push((start_line, joined));
             }
         }
 
+        // Independent cross-check against the statement's own printed
+        // numbers: debit/credit and balance are each read straight from
+        // text, so if a future template reorders those columns the two
+        // stop reconciling — better to fail loudly here than silently hand
+        // back transactions with the wrong amount or direction.
+        let mut running_balance: Option<i64> = None;
+
         let mut txns = Vec::with_capacity(rows.len());
         for (line_no, row) in rows {
             let malformed = || ParseError::MalformedStatement { line: line_no };
             if row.contains("Opening Balance") {
+                running_balance = money_re()
+                    .find_iter(&row)
+                    .last()
+                    .and_then(|m| Money::parse(m.as_str()).ok())
+                    .map(|m| m.paise());
                 continue; // running-balance anchor, not a transaction
             }
             let caps = row_head_re().captures(&row).ok_or_else(malformed)?;
@@ -159,6 +198,18 @@ impl BankProfile for BobProfile {
                 _ => return Err(malformed()),
             };
             let amount_paise = Money::parse(amount).map_err(|_| malformed())?.paise();
+
+            if let Some(prev) = running_balance {
+                let signed = match direction {
+                    Direction::Credit => amount_paise,
+                    Direction::Debit => -amount_paise,
+                };
+                if prev + signed != balance_paise {
+                    return Err(malformed());
+                }
+            }
+            running_balance = Some(balance_paise);
+
             let now = Utc::now();
             txns.push(Transaction {
                 id: Uuid::new_v4(),

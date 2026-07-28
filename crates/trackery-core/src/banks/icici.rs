@@ -47,6 +47,17 @@ fn money_re() -> &'static Regex {
     RE.get_or_init(|| Regex::new(r"\d[\d,]*\.\d{2}").expect("static regex"))
 }
 
+/// Does `line` start with a money-shaped token? A continuation line
+/// starting this way is the amount/balance pair, not a mid-word narration
+/// wrap — joining it with no separator risks fusing a digit off the end of
+/// the previous line's reference number onto the front of the amount
+/// (`...b4` + `500.00` reads back as `4500.00`), so it gets a real boundary.
+fn starts_with_money(line: &str) -> bool {
+    money_re()
+        .find(line.trim_start())
+        .is_some_and(|m| m.start() == 0)
+}
+
 /// Header/footer furniture repeated on every page — never a continuation.
 fn is_furniture(line: &str) -> bool {
     let t = line.trim();
@@ -90,25 +101,39 @@ impl BankProfile for IciciProfile {
                     if date_led(next) || is_furniture(next) {
                         break;
                     }
-                    block.push_str(lines.next().expect("peeked Some"));
+                    let cont = lines.next().expect("peeked Some");
+                    if starts_with_money(cont) {
+                        block.push(' ');
+                    }
+                    block.push_str(cont);
                     line_no += 1;
                 }
 
                 let malformed = || ParseError::MalformedStatement { line: start_line };
                 let date = leading_date(&block).ok_or_else(malformed)?;
-                let balance_str = money_re()
-                    .find_iter(&block)
-                    .last()
-                    .ok_or_else(malformed)?
-                    .as_str();
-                let balance_paise = Money::parse(balance_str).map_err(|_| malformed())?.paise();
+                let money: Vec<&str> = money_re().find_iter(&block).map(|m| m.as_str()).collect();
 
                 // `B/F` (brought forward) is the running-balance anchor, not
-                // a transaction — it seeds the delta baseline instead.
+                // a transaction — it seeds the delta baseline instead, and
+                // prints only the one balance figure, no amount.
                 if block.contains("B/F") {
-                    balance_before = Some(balance_paise);
+                    if money.len() != 1 {
+                        return Err(malformed());
+                    }
+                    balance_before = Some(Money::parse(money[0]).map_err(|_| malformed())?.paise());
                     continue;
                 }
+                // Real rows print exactly one amount and the resulting
+                // balance — never a placeholder for the unused
+                // deposit/withdrawal column, and never a third money-shaped
+                // figure. Requiring exactly two means an unexpected layout
+                // (extra column, reordered fields) fails loudly here
+                // instead of silently picking the wrong tokens.
+                if money.len() != 2 {
+                    return Err(malformed());
+                }
+                let (printed_amount, balance_str) = (money[0], money[1]);
+                let balance_paise = Money::parse(balance_str).map_err(|_| malformed())?.paise();
                 let prev = balance_before.ok_or_else(malformed)?;
                 let amount_paise = (balance_paise - prev).abs();
                 let direction = if balance_paise >= prev {
@@ -116,6 +141,15 @@ impl BankProfile for IciciProfile {
                 } else {
                     Direction::Debit
                 };
+                // Cross-check: the delta-derived amount must match what's
+                // actually printed, independently, in the row.
+                if Money::parse(printed_amount)
+                    .map_err(|_| malformed())?
+                    .paise()
+                    != amount_paise
+                {
+                    return Err(malformed());
+                }
                 balance_before = Some(balance_paise);
 
                 let narration_raw = money_re().replace_all(&block[10..], "").trim().to_string();

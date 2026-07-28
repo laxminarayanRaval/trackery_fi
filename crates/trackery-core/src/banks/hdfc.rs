@@ -93,6 +93,17 @@ fn money_re() -> &'static Regex {
     RE.get_or_init(|| Regex::new(r"\d[\d,]*\.\d{2}").expect("static regex"))
 }
 
+/// Does `line` start with a money-shaped token? A continuation line
+/// starting this way is the amount/balance pair, not a mid-word narration
+/// wrap — joining it with no separator risks fusing a digit off the end of
+/// the previous line's reference number onto the front of the amount
+/// (`...b4` + `500.00` reads back as `4500.00`), so it gets a real boundary.
+fn starts_with_money(line: &str) -> bool {
+    money_re()
+        .find(line.trim_start())
+        .is_some_and(|m| m.start() == 0)
+}
+
 /// The statement-summary data row: `<opening> <dr count> <cr count>
 /// <debits> <credits> <closing>` — used both to seed the running balance
 /// and to recognize the line as furniture rather than a stray continuation.
@@ -120,16 +131,24 @@ impl BankProfile for HdfcProfile {
         Bank::Hdfc
     }
 
-    /// Bank name alone is not enough — other banks' statements can carry
-    /// "HDFC" inside UPI narrations, so require HDFC's withdrawal column
-    /// label too.
+    /// Bank name/IFSC alone is not enough — other banks' statements can
+    /// carry "HDFC" inside UPI narrations, so require HDFC's withdrawal
+    /// column label too. `HDFC0` (the bank's universal IFSC prefix) backs
+    /// up the "HDFC BANK" name text in case a future template's letterhead
+    /// is a logo image with no extractable text, the way BOB's turned out
+    /// to be.
     fn detect(first_page_text: &str) -> bool {
-        first_page_text.contains("HDFC BANK") && first_page_text.contains(WITHDRAWAL)
+        (first_page_text.contains("HDFC BANK") || first_page_text.contains("HDFC0"))
+            && first_page_text.contains(WITHDRAWAL)
     }
 
     fn parse(&self, pages: &[String]) -> Result<Vec<Transaction>, ParseError> {
         let mut txns = Vec::new();
-        let mut balance_before = opening_balance_paise(pages).unwrap_or(0);
+        // No opening balance to seed direction from is itself a sign this
+        // statement doesn't look like the one this parser was built
+        // against — fail loudly rather than guess zero.
+        let mut balance_before =
+            opening_balance_paise(pages).ok_or(ParseError::MalformedStatement { line: 0 })?;
         let mut line_no = 0usize; // 1-based across all pages
 
         for page in pages {
@@ -145,17 +164,27 @@ impl BankProfile for HdfcProfile {
                     if date_led(next) || is_furniture(next) {
                         break;
                     }
-                    block.push_str(lines.next().expect("peeked Some"));
+                    let cont = lines.next().expect("peeked Some");
+                    if starts_with_money(cont) {
+                        block.push(' ');
+                    }
+                    block.push_str(cont);
                     line_no += 1;
                 }
 
                 let malformed = || ParseError::MalformedStatement { line: start_line };
                 let date = leading_date(&block).ok_or_else(malformed)?;
-                let balance_str = money_re()
-                    .find_iter(&block)
-                    .last()
-                    .ok_or_else(malformed)?
-                    .as_str();
+                // Real rows print exactly one amount and the resulting
+                // balance — never a placeholder for the unused column, and
+                // never a third money-shaped figure. Requiring exactly two
+                // means an unexpected layout (extra column, reordered
+                // fields) fails loudly here instead of silently picking the
+                // wrong tokens.
+                let money: Vec<&str> = money_re().find_iter(&block).map(|m| m.as_str()).collect();
+                if money.len() != 2 {
+                    return Err(malformed());
+                }
+                let (printed_amount, balance_str) = (money[0], money[1]);
                 let balance_paise = Money::parse(balance_str).map_err(|_| malformed())?.paise();
                 let amount_paise = (balance_paise - balance_before).abs();
                 let direction = if balance_paise >= balance_before {
@@ -163,6 +192,15 @@ impl BankProfile for HdfcProfile {
                 } else {
                     Direction::Debit
                 };
+                // Cross-check: the delta-derived amount must match what's
+                // actually printed, independently, in the row.
+                if Money::parse(printed_amount)
+                    .map_err(|_| malformed())?
+                    .paise()
+                    != amount_paise
+                {
+                    return Err(malformed());
+                }
                 balance_before = balance_paise;
 
                 let narration_raw = money_re().replace_all(&block[8..], "").trim().to_string();

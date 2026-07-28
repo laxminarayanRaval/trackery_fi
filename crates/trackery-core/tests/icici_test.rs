@@ -83,13 +83,21 @@ fn running_balance_is_consistent() {
 /// ICICI wraps long Transaction Remarks across lines mid-token, sometimes
 /// across a page boundary; the parser must join continuation lines onto the
 /// preceding row's narration with no separator.
+///
+/// Row 3's narration deliberately ends in a digit ("...LTD9") right before
+/// the amount/balance line — a real bug found against a live statement:
+/// joining `...LTD9` and `20,000.00` with no separator reads back as a
+/// single `920,000.00` token. Amount must still come out as exactly
+/// 20,000.00, not corrupted by the fused digit.
 #[test]
 fn joins_wrapped_remarks() {
     let txns = parse_statement(&fixture_pages("icici")).expect("parse icici fixture");
     assert_eq!(
         txns[2].narration_raw,
-        "UPI/SYNTH SALARY/synthsalary/Salary Credit/YESBANK/900000000003/SYNfakeaaaa2222bbbb3333cccc4444/SYNTH EMPLOYER PVT LTD"
+        "UPI/SYNTH SALARY/synthsalary/Salary Credit/YESBANK/900000000003/SYNfakeaaaa2222bbbb3333cccc4444/SYNTH EMPLOYER PVT LTD9"
     );
+    assert_eq!(txns[2].amount_paise, 20_000_00);
+    assert_eq!(txns[2].balance_paise, Some(29_673_00));
     // Row 4 (page 2, index 3) wraps across three continuation lines.
     assert_eq!(
         txns[3].narration_raw,
