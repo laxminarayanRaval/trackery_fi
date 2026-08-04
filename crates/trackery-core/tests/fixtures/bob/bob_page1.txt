@@ -1,0 +1,46 @@
+Account Statement from 01-01-2026 to 31-01-2026
+Account Name
+Account Number
+Account Type
+Customer Address
+Branch Name
+IFSC Code
+MICR Code
+Branch Address
+SYNTH ACCOUNT HOLDER
+XXXX1234
+FAKETOWN, SYNTH STATE
+PLOT NO 1 SYNTH COMPLEX FAKETOWN,
+FAKETOWN
+Synthia 000001 SY
+1 FAKE SOCIETY FAKETOWN
+FAKETOWN SYNTHIA,INDIA
+000001
+BARB0XXXXXX
+SBA XXXXXXXXX
+Account Details
+Serial
+No
+Transaction
+Date
+Value
+Date
+Description Cheque
+Number
+Debit Credit Balance
+1 01-01-2026 Opening Balance - - 5,000.00
+2 01-01-2026 01-01-2026 4,750.00 UPI/900000000001/10:15:22/UPI/synth.merchant1@ybl 250.00 -
+3 02-01-2026 02-01-2026 4,650.00 UPI/900000000002/11:20:10/UPI/synth-merchant2-
+abc@axl 100.00 -
+4 03-01-2026 03-01-2026 4,600.00 UPI/900000000003/12:05:44/UPI/synthqr3@ptys
+/
+50.00 -
+5 04-01-2026 04-01-2026 9,600.00 UPI/900000000004/13:30:00/UPI/synthsender5@i- 5,000.00
+6 05-01-2026 05-01-2026 9,700.00 UPI/900000000005/14:10:05/UPI/synthbank6@axisb - 100.00
+7 06-01-2026 05-01-2026 9,750.00 XXXX1234:Int.Pd:01-10-2025 to 31-12-2025- 50.00
+8 07-01-2026 07-01-2026 9,600.00 UPI/900000000006/15:45:12/UPI/synthfuel8@ok
+s 150.00 -
+This is a computer-generated statement hence does not require signature. Statement is generated on 01/02/2026 12:00:00 PM (through bob World mobile app) from the system
+maintained in the bank containing transactions carried out in normal course of business.
+Page 1 of 2
+Note: In case you find any discrepancy, we advise you to take up with your base branch or raise a complaint using bob World.

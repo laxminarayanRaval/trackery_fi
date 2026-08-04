@@ -27,6 +27,15 @@ pub enum TxnMode {
     Other,
 }
 
+/// Where a transaction came from. Only `StatementImport` is produced in
+/// Sprint 1; the others exist so the schema never needs a breaking change.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TransactionOrigin {
+    StatementImport,
+    ManualEntry,
+    SmsImport,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Counterparty {
     pub name: Option<String>,
@@ -34,19 +43,26 @@ pub struct Counterparty {
     pub vpa: Option<String>,
     /// RRN / UTR reference.
     pub reference: Option<String>,
+    pub merchant: Option<String>,
     pub mode: TxnMode,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Transaction {
     pub id: Uuid, // sync-ready from day one
+    pub account_id: Uuid,
     pub date: NaiveDate,
     pub narration_raw: String,
+    pub description: Option<String>,
     pub direction: Direction,
     pub amount_paise: i64,
     pub balance_paise: Option<i64>,
+    pub origin: TransactionOrigin,
     pub counterparty: Option<Counterparty>,
-    pub bank: Bank,
+    /// `None` for origins that have no bank statement behind them.
+    pub bank: Option<Bank>,
+    pub category_id: Option<Uuid>,
+    pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>, // sync-ready
     pub deleted: bool,             // soft delete, sync-ready
 }
@@ -67,6 +83,11 @@ macro_rules! str_enum {
 
 str_enum!(Direction { Debit => "debit", Credit => "credit" });
 str_enum!(Bank { Bob => "bob", Hdfc => "hdfc", Icici => "icici" });
+str_enum!(TransactionOrigin {
+    StatementImport => "statement_import",
+    ManualEntry => "manual_entry",
+    SmsImport => "sms_import",
+});
 str_enum!(TxnMode {
     Upi => "upi",
     Imps => "imps",

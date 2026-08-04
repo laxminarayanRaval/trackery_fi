@@ -1,0 +1,23 @@
+Account Statement from 01-01-2026 to 31-01-2026
+Serial
+No
+Transaction
+Date
+Value
+Date
+Description Cheque
+Number
+Debit Credit Balance
+9 10-01-2026 10-01-2026 9,200.00 UPI/900000000007/09:12:33/UPI/synthcab9@okax 400.00 -
+10 12-01-2026 12-01-2026 8,700.00 UPI/900000000008/10:00:00/UPI/synth-ref10-
+cd@ybl 500.00 -
+11 15-01-2026 15-01-2026 10,200.00 UPI/900000000009/11:11:11/UPI/synthclient11@paytm - 1,500.00
+12 18-01-2026 18-01-2026 10,100.00 UPI/900000000010/12:22:22/UPI/synthbook12@sbin
+/
+100.00 -
+13 22-01-2026 22-01-2026 9,750.00 UPI/900000000011/13:33:33/UPI/synthelectronics13@okhdfcbank 350.00 -
+14 28-01-2026 28-01-2026 9,755.00 UPI/900000000012/14:44:44/UPI/synthgift14@okicici - 5.00
+This is a computer-generated statement hence does not require signature. Statement is generated on 01/02/2026 12:00:00 PM (through bob World mobile app) from the system
+maintained in the bank containing transactions carried out in normal course of business.
+Page 2 of 2
+Note: In case you find any discrepancy, we advise you to take up with your base branch or raise a complaint using bob World.

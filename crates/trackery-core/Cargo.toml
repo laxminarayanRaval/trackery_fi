@@ -10,6 +10,8 @@ thiserror = "2"
 pdfium-render = { version = "0.8", default-features = false, features = ["sync", "pdfium_latest"] }
 
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
+# ponytail: full unicode off (narrations are ASCII), unicode-perl kept for \d \s \w
+regex = { version = "1", default-features = false, features = ["std", "perf", "unicode-perl"] }
 uuid = { version = "1", features = ["v4"] }
 rusqlite = { version = "0.32", features = ["bundled-sqlcipher-vendored-openssl"] }
 

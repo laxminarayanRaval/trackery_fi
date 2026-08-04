@@ -1,22 +1,18 @@
-ICICI Bank Limited
-Statement of Account
-MR. SYNTHETIC CUSTOMER
-Account Number : XXXX0221            Branch : FAKETOWN
-Statement Period : 01-03-2026 to 31-03-2026
-
-DATE         PARTICULARS                                        DEPOSITS      WITHDRAWALS      BALANCE
-01-03-2026   B/F                                                                               45,000.00
-02-03-2026   UPI/504412345678/Groceries/synth.mart@okicici/UPI                   850.00        44,150.00
-03-03-2026   NEFT-N063261234567890-SYNTH TECH LLP-SALARY FEB    55,000.00                      99,150.00
-05-03-2026   MMT/IMPS/506812345678/Rent Mar/SYNTH LANDLORD                    18,000.00        81,150.00
-08-03-2026   UPI/507112345679/Dinner/synth.eats@ybl/YBL                         1,240.50       79,909.50
-12-03-2026   ATM/CASH WDL/SYNTH NAGAR ATM/XXXX0221                              5,000.00       74,909.50
-15-03-2026   POS XXXX1111 SYNTH ELECTRONICS                                    12,499.00       62,410.50
-18-03-2026   UPI/509912345680/Refund order/synth.shop@paytm/PYTM    499.00                     62,909.50
-25-03-2026   BIL/BPAY/508812345681/SYNTH POWER
-CO/MAR BILL                                                                     2,340.00       60,569.50
-28-03-2026   INT.PD:01-01-2026 TO 31-03-2026                       391.20                      60,960.70
-31-03-2026   NEFT-N090261234567891-SYNTH CLIENT-INVOICE 114     20,000.00                      80,960.70
-
-This is a system generated statement and does not require any signature.
-Page 1 of 1
+Statement of Transactions in Savings Account Number: XXXX1234 in INR for the period April 01, 2025 - March 31, 2026
+DATE MODE** PARTICULARS DEPOSITS WITHDRAWALS BALANCE
+01-01-2026 B/F 10,000.00
+01-01-2026
+UPI/SYNTH MERCHANT/synthmerchant/UPI/State
+Bank/900000000001/SYNfake111122223333cd6e3
+2222f93c/SYNTH MERCHANT PVT LTD
+300.00 9,700.00
+03-01-2026 ACH/SYNTHUTILITY/900000000002 27.00 9,673.00
+05-01-2026
+UPI/SYNTH SALARY/synthsalary/Salary Credit/YES
+BANK/900000000003/SYNfakeaaaa2222bbbb3333cccc
+4444/SYNTH EMPLOYER PVT LTD9
+20,000.00 29,673.00
+Page 1 of 2
+Your Base Branch: ICICI BANK LTD., GROUND FLOOR
+FAKE ADDRESS LINE, FAKETOWN 000001
+Visit www.icicibank.com

@@ -10,9 +10,9 @@
 use std::path::PathBuf;
 
 use tauri::Manager;
+use trackery_core::banks::{self, ParseError};
 use trackery_core::db::{Db, DbError};
 use trackery_core::model::Transaction;
-use trackery_core::parse::{self, ParseError};
 use trackery_core::pdf::{self, PdfError};
 
 #[derive(serde::Serialize)]
@@ -44,7 +44,7 @@ impl From<&Transaction> for TxnDto {
             cp_vpa: cp.and_then(|c| c.vpa.clone()),
             cp_reference: cp.and_then(|c| c.reference.clone()),
             mode: cp.map(|c| c.mode.as_str().to_string()),
-            bank: t.bank.as_str().to_string(),
+            bank: t.bank.map(|b| b.as_str().to_string()).unwrap_or_default(),
         }
     }
 }
@@ -83,17 +83,21 @@ async fn import_statement(
         PdfError::CorruptPdf => "corrupt_pdf".to_string(),
         PdfError::PdfiumUnavailable(e) => format!("pdfium_unavailable: {e}"),
     })?;
-    let stmt = parse::parse_statement(&pages).map_err(|e| match e {
+    let txns = banks::parse_statement(&pages).map_err(|e| match e {
         ParseError::UnsupportedBank => "unsupported_bank".to_string(),
         ParseError::MalformedStatement { line } => format!("malformed_statement:{line}"),
     })?;
     let db = open_db(&app, &db_key)?;
-    for txn in &stmt.transactions {
+    for txn in &txns {
         db.insert(txn).map_err(|e| format!("db: {e}"))?;
     }
     Ok(ImportSummary {
-        bank: stmt.bank.as_str().to_string(),
-        imported: stmt.transactions.len(),
+        bank: txns
+            .first()
+            .and_then(|t| t.bank)
+            .map(|b| b.as_str().to_string())
+            .unwrap_or_default(),
+        imported: txns.len(),
     })
 }
 
