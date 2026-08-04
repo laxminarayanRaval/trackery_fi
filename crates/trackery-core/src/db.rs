@@ -89,6 +89,15 @@ impl Db {
         Self::init(Connection::open_in_memory()?, key)
     }
 
+    /// Re-encrypt the database in place under a new key. Used once when
+    /// migrating a legacy vault (random key in a file beside the db) to a
+    /// user-chosen passphrase.
+    pub fn rekey(path: &Path, old_key: &str, new_key: &str) -> Result<(), DbError> {
+        let db = Self::open(path, old_key)?;
+        db.conn.pragma_update(None, "rekey", new_key)?;
+        Ok(())
+    }
+
     fn init(conn: Connection, key: &str) -> Result<Self, DbError> {
         conn.pragma_update(None, "key", key)?;
         // First read decrypts page 1; a wrong key surfaces as "not a database".
@@ -303,6 +312,28 @@ mod tests {
         let b = txn("2026-02-02", "IMPS-REF-SYNTH", 7_500);
         db.upsert(&b).expect("upsert new");
         assert_eq!(db.list().expect("list").len(), 1);
+    }
+
+    #[test]
+    fn rekey_moves_vault_to_new_key() {
+        let path = std::env::temp_dir().join(format!(
+            "trackery_rekey_{}_{}.db",
+            std::process::id(),
+            Uuid::new_v4()
+        ));
+        {
+            let db = Db::open(&path, "legacy-random-key").expect("create");
+            db.insert(&txn("2026-04-01", "UPI-REKEY-CHECK", -1_00)).expect("insert");
+        }
+        Db::rekey(&path, "legacy-random-key", "user passphrase").expect("rekey");
+        assert!(matches!(
+            Db::open(&path, "legacy-random-key"),
+            Err(DbError::WrongKey)
+        ));
+        let db = Db::open(&path, "user passphrase").expect("open with new key");
+        assert_eq!(db.list().expect("list").len(), 1);
+        drop(db);
+        let _ = std::fs::remove_file(&path);
     }
 
     #[test]

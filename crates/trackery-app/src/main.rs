@@ -65,10 +65,34 @@ fn db_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 }
 
 fn open_db(app: &tauri::AppHandle, key: &str) -> Result<Db, String> {
-    Db::open(&db_path(app)?, key).map_err(|e| match e {
+    let path = db_path(app)?;
+    migrate_legacy_vault(&path, key)?;
+    Db::open(&path, key).map_err(|e| match e {
         DbError::WrongKey => "wrong_db_key".to_string(),
         DbError::Sqlite(e) => format!("db: {e}"),
     })
+}
+
+/// One-time adoption of a v0 vault: the old app kept a random key in a
+/// `db.key` file beside the database. On the first unlock after upgrade,
+/// re-encrypt that vault under the user's passphrase and drop the key file.
+fn migrate_legacy_vault(path: &std::path::Path, new_key: &str) -> Result<(), String> {
+    let dir = path.parent().ok_or("db path has no parent")?;
+    let legacy_key_file = dir.join("db.key");
+    let backup = dir.join("trackery.db.old-vault-20260805");
+    if path.exists() || !legacy_key_file.exists() {
+        return Ok(());
+    }
+    let source = if backup.exists() { backup } else { return Ok(()) };
+    let legacy_key = std::fs::read_to_string(&legacy_key_file)
+        .map_err(|e| format!("read legacy key: {e}"))?;
+    std::fs::copy(&source, path).map_err(|e| format!("stage legacy vault: {e}"))?;
+    if let Err(e) = Db::rekey(path, legacy_key.trim(), new_key) {
+        let _ = std::fs::remove_file(path); // leave a clean slate for retry
+        return Err(format!("legacy vault migration failed: {e}"));
+    }
+    let _ = std::fs::remove_file(&legacy_key_file); // plaintext key must not outlive migration
+    Ok(())
 }
 
 #[tauri::command]
