@@ -7,4 +7,5 @@
 pub mod db;
 pub mod model;
 pub mod money;
+pub mod parse;
 pub mod pdf;

@@ -1,0 +1,14 @@
+SYNTH BANK OF INDIA LTD.
+Statement of Account
+Customer Name : SYNTHETIC CUSTOMER
+Account No : XXXX9876          Branch : FAKETOWN MAIN
+Period : 01/01/2026 to 31/01/2026
+
+Date       Particulars                          Withdrawals      Deposits        Balance
+01/01/2026 OPENING BALANCE                                                       10,000.00
+04/01/2026 CHQ DEP 000123 SYNTH PAYER                             2,500.00       12,500.00
+09/01/2026 POS 4XXXXXXXXXXX1111 SYNTH STORE       1,200.00                       11,300.00
+31/01/2026 CLOSING BALANCE                                                       11,300.00
+
+This is a computer generated statement and does not require signature.
+Page 1 of 1
