@@ -11,9 +11,15 @@ use std::path::PathBuf;
 
 use tauri::Manager;
 use trackery_core::banks::{self, ParseError};
-use trackery_core::db::{Db, DbError};
+use trackery_core::db::{Db, DbError, ImportRecord};
 use trackery_core::model::Transaction;
 use trackery_core::pdf::{self, PdfError};
+
+fn device_name() -> String {
+    std::env::var("COMPUTERNAME")
+        .or_else(|_| std::env::var("HOSTNAME"))
+        .unwrap_or_else(|_| "unknown-device".into())
+}
 
 #[derive(serde::Serialize)]
 struct TxnDto {
@@ -52,7 +58,19 @@ impl From<&Transaction> for TxnDto {
 #[derive(serde::Serialize)]
 struct ImportSummary {
     bank: String,
+    total: usize,
     imported: usize,
+    duplicates: usize,
+}
+
+#[derive(serde::Serialize)]
+struct ImportDto {
+    imported_at: String,
+    device: String,
+    bank: String,
+    total_rows: i64,
+    new_rows: i64,
+    dup_rows: i64,
 }
 
 fn db_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
@@ -112,17 +130,47 @@ async fn import_statement(
         ParseError::MalformedStatement { line } => format!("malformed_statement:{line}"),
     })?;
     let db = open_db(&app, &db_key)?;
+    let mut imported = 0usize;
     for txn in &txns {
-        db.insert(txn).map_err(|e| format!("db: {e}"))?;
+        if db.insert(txn).map_err(|e| format!("db: {e}"))? {
+            imported += 1;
+        }
     }
-    Ok(ImportSummary {
-        bank: txns
-            .first()
-            .and_then(|t| t.bank)
-            .map(|b| b.as_str().to_string())
-            .unwrap_or_default(),
-        imported: txns.len(),
+    let bank = txns.first().and_then(|t| t.bank);
+    db.record_import(&ImportRecord {
+        id: uuid::Uuid::new_v4(),
+        imported_at: chrono::Utc::now(),
+        device: device_name(),
+        bank,
+        total_rows: txns.len() as i64,
+        new_rows: imported as i64,
+        dup_rows: (txns.len() - imported) as i64,
     })
+    .map_err(|e| format!("db: {e}"))?;
+    Ok(ImportSummary {
+        bank: bank.map(|b| b.as_str().to_string()).unwrap_or_default(),
+        total: txns.len(),
+        imported,
+        duplicates: txns.len() - imported,
+    })
+}
+
+#[tauri::command]
+async fn list_imports(app: tauri::AppHandle, db_key: String) -> Result<Vec<ImportDto>, String> {
+    let db = open_db(&app, &db_key)?;
+    Ok(db
+        .list_imports()
+        .map_err(|e| format!("db: {e}"))?
+        .into_iter()
+        .map(|r| ImportDto {
+            imported_at: r.imported_at.to_rfc3339(),
+            device: r.device,
+            bank: r.bank.map(|b| b.as_str().to_string()).unwrap_or_default(),
+            total_rows: r.total_rows,
+            new_rows: r.new_rows,
+            dup_rows: r.dup_rows,
+        })
+        .collect())
 }
 
 #[tauri::command]
@@ -137,7 +185,11 @@ async fn list_transactions(
 
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![import_statement, list_transactions])
+        .invoke_handler(tauri::generate_handler![
+            import_statement,
+            list_transactions,
+            list_imports
+        ])
         .run(tauri::generate_context!())
         .expect("error while running trackery");
 }

@@ -3654,11 +3654,13 @@ dependencies = [
 name = "trackery-app"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "serde",
  "serde_json",
  "tauri",
  "tauri-build",
  "trackery-core",
+ "uuid",
 ]
 
 [[package]]

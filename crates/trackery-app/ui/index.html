@@ -36,13 +36,32 @@
       </div>
     </header>
 
-    <!-- PDF password prompt (appears during import when needed) -->
-    <div id="pdf-pass-row" class="pdf-pass" hidden>
-      <span id="pdf-pass-label">This statement is password-protected.</span>
-      <input id="pdf-pass-input" type="password" placeholder="PDF password" />
-      <button id="pdf-pass-go" class="btn">Open</button>
-      <button id="pdf-pass-cancel" class="btn btn-ghost">Cancel</button>
-    </div>
+    <!-- Import dialog: file, password, result, and history in one place -->
+    <dialog id="import-dialog" class="import-dialog">
+      <div class="dialog-head">
+        <h2>Import a statement</h2>
+        <button id="import-close" class="btn btn-ghost" aria-label="Close">✕</button>
+      </div>
+      <div class="dialog-body">
+        <div class="import-file-row">
+          <button id="choose-file" class="btn">Choose PDF…</button>
+          <span id="chosen-file" class="muted">No file chosen</span>
+        </div>
+        <label class="field-label" for="pdf-pass-input">Statement password</label>
+        <input id="pdf-pass-input" type="password"
+               placeholder="Leave blank if the PDF isn't protected" />
+        <div class="import-actions">
+          <button id="import-go" class="btn btn-primary" disabled>Import</button>
+          <span id="import-busy" class="muted" hidden>Reading statement…</span>
+        </div>
+        <p id="import-error" class="error" hidden></p>
+        <p id="import-result" class="import-result" hidden></p>
+        <h3 class="history-title">Import history</h3>
+        <div id="import-history" class="import-history">
+          <p class="muted">No imports yet.</p>
+        </div>
+      </div>
+    </dialog>
 
     <p id="status-line" class="status" hidden></p>
 

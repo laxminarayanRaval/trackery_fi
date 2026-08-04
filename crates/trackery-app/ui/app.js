@@ -8,9 +8,11 @@ const $ = (id) => document.getElementById(id);
 const els = {
   lock: $("lock"), app: $("app"), pass: $("passphrase"), unlockBtn: $("unlock-btn"),
   lockError: $("lock-error"), importBtn: $("import-btn"), fileInput: $("file-input"),
-  pdfPassRow: $("pdf-pass-row"), pdfPassInput: $("pdf-pass-input"),
-  pdfPassGo: $("pdf-pass-go"), pdfPassCancel: $("pdf-pass-cancel"),
-  pdfPassLabel: $("pdf-pass-label"),
+  dialog: $("import-dialog"), dialogClose: $("import-close"),
+  chooseFile: $("choose-file"), chosenFile: $("chosen-file"),
+  pdfPassInput: $("pdf-pass-input"), importGo: $("import-go"),
+  importBusy: $("import-busy"), importError: $("import-error"),
+  importResult: $("import-result"), importHistory: $("import-history"),
   status: $("status-line"), kpis: $("kpis"), charts: $("charts"),
   ledger: $("ledger"), ledgerCount: $("ledger-count"), empty: $("empty"),
   tooltip: $("tooltip"),
@@ -72,61 +74,102 @@ async function unlock() {
 els.unlockBtn.addEventListener("click", unlock);
 els.pass.addEventListener("keydown", (e) => { if (e.key === "Enter") unlock(); });
 
-// ---------- import ----------
-els.importBtn.addEventListener("click", () => els.fileInput.click());
+// ---------- import dialog ----------
+function importError(msg) {
+  els.importError.hidden = !msg;
+  els.importError.textContent = msg || "";
+}
+
+function openImportDialog() {
+  pendingBytes = null;
+  els.chosenFile.textContent = "No file chosen";
+  els.pdfPassInput.value = "";
+  els.importGo.disabled = true;
+  importError("");
+  els.importResult.hidden = true;
+  els.dialog.showModal();
+  refreshImportHistory();
+}
+els.importBtn.addEventListener("click", openImportDialog);
+els.dialogClose.addEventListener("click", () => els.dialog.close());
+
+els.chooseFile.addEventListener("click", () => els.fileInput.click());
 els.fileInput.addEventListener("change", async () => {
   const file = els.fileInput.files[0];
   els.fileInput.value = "";
   if (!file) return;
   pendingBytes = Array.from(new Uint8Array(await file.arrayBuffer()));
-  tryImport(null);
+  els.chosenFile.textContent = file.name;
+  els.importGo.disabled = false;
+  importError("");
+  els.importResult.hidden = true;
 });
 
-async function tryImport(pdfPassword) {
+async function runImport() {
   if (!pendingBytes) return;
-  status("Reading statement…");
+  const pw = els.pdfPassInput.value;
+  els.importGo.disabled = true;
+  els.importBusy.hidden = false;
+  importError("");
   try {
-    const summary = await invoke("import_statement", {
-      bytes: pendingBytes, pdfPassword, dbKey: KEY,
+    const s = await invoke("import_statement", {
+      bytes: pendingBytes, pdfPassword: pw || null, dbKey: KEY,
     });
     pendingBytes = null;
-    els.pdfPassRow.hidden = true;
+    els.chosenFile.textContent = "No file chosen";
+    els.importResult.hidden = false;
+    els.importResult.textContent =
+      `${s.bank.toUpperCase()}: ${s.imported} new transaction${s.imported === 1 ? "" : "s"}` +
+      (s.duplicates ? `, ${s.duplicates} already in the ledger (skipped)` : "") + ".";
     ALL = await invoke("list_transactions", { dbKey: KEY });
     render();
-    status(`Imported ${summary.imported} transactions from ${summary.bank.toUpperCase()}.`);
+    refreshImportHistory();
   } catch (e) {
     const err = String(e);
+    els.importGo.disabled = false;
     if (err === "wrong_pdf_password") {
-      els.pdfPassRow.hidden = false;
-      els.pdfPassLabel.textContent = pdfPassword
-        ? "That password didn't open the PDF — try again."
-        : "This statement is password-protected.";
-      els.pdfPassInput.value = "";
+      importError(pw ? "That password didn't open the PDF — try again."
+                     : "This statement is password-protected — enter its password.");
       els.pdfPassInput.focus();
-      status("");
     } else if (err === "unsupported_bank") {
-      pendingBytes = null;
-      status("This bank's format isn't supported yet — currently: ICICI.", true);
+      importError("This bank's format isn't supported yet. Supported: ICICI, BOB, HDFC.");
     } else if (err.startsWith("malformed_statement:")) {
-      pendingBytes = null;
-      status(`Couldn't read the statement (line ${err.split(":")[1]} doesn't reconcile). ` +
-        "If this is a real statement, please report the bank and month.", true);
+      importError(`Couldn't read the statement — line ${err.split(":")[1]} doesn't reconcile. ` +
+        "Tell me the bank and month and I'll fix the parser.");
     } else if (err === "corrupt_pdf") {
-      pendingBytes = null;
-      status("That file doesn't look like a readable PDF.", true);
+      importError("That file doesn't look like a readable PDF.");
     } else {
-      pendingBytes = null;
-      status("Import failed: " + err, true);
+      importError("Import failed: " + err);
     }
+  } finally {
+    els.importBusy.hidden = true;
+    if (pendingBytes) els.importGo.disabled = false;
   }
 }
-els.pdfPassGo.addEventListener("click", () => tryImport(els.pdfPassInput.value));
-els.pdfPassInput.addEventListener("keydown", (e) => { if (e.key === "Enter") tryImport(els.pdfPassInput.value); });
-els.pdfPassCancel.addEventListener("click", () => {
-  pendingBytes = null;
-  els.pdfPassRow.hidden = true;
-  status("Import cancelled.");
-});
+els.importGo.addEventListener("click", runImport);
+els.pdfPassInput.addEventListener("keydown", (e) => { if (e.key === "Enter") runImport(); });
+
+async function refreshImportHistory() {
+  let history = [];
+  try {
+    history = await invoke("list_imports", { dbKey: KEY });
+  } catch { /* history is best-effort; the dialog still works without it */ }
+  if (!history.length) {
+    els.importHistory.innerHTML = `<p class="muted">No imports yet.</p>`;
+    return;
+  }
+  const when = (iso) =>
+    new Date(iso).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+  els.importHistory.innerHTML = `<table>
+    <tr><th>When</th><th>Device</th><th>Bank</th><th class="num">New</th><th class="num">Skipped</th></tr>` +
+    history.map((h) => `<tr>
+      <td>${esc(when(h.imported_at))}</td>
+      <td>${esc(h.device)}</td>
+      <td>${esc(h.bank.toUpperCase())}</td>
+      <td class="num new">${h.new_rows}</td>
+      <td class="num dup">${h.dup_rows}</td>
+    </tr>`).join("") + `</table>`;
+}
 
 // ---------- filters ----------
 for (const el of [els.fFrom, els.fTo, els.fDir, els.fMode, els.fMin, els.fMax]) {

@@ -42,7 +42,39 @@ const MIGRATIONS: &[&str] = &["CREATE TABLE transactions (
         created_at    TEXT NOT NULL,
         updated_at    TEXT NOT NULL,
         deleted       INTEGER NOT NULL DEFAULT 0
+    );",
+    // v2: statement dedup + import history. The natural-row index makes
+    // re-importing an overlapping statement a no-op per row; pre-existing
+    // duplicates (from v1 re-imports) are collapsed to their earliest copy
+    // first so the index can build. NULL balances stay distinct — statement
+    // imports always carry a balance.
+    "DELETE FROM transactions WHERE rowid NOT IN (
+        SELECT MIN(rowid) FROM transactions
+        GROUP BY account_id, bank, date, direction, amount_paise, narration_raw, balance_paise
+    );
+    CREATE UNIQUE INDEX idx_txn_natural_row ON transactions
+        (account_id, bank, date, direction, amount_paise, narration_raw, balance_paise);
+    CREATE TABLE imports (
+        id          TEXT PRIMARY KEY,
+        imported_at TEXT NOT NULL,
+        device      TEXT NOT NULL,
+        bank        TEXT,
+        total_rows  INTEGER NOT NULL,
+        new_rows    INTEGER NOT NULL,
+        dup_rows    INTEGER NOT NULL
     );"];
+
+/// One statement-import event, for the audit trail shown in the import dialog.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImportRecord {
+    pub id: Uuid,
+    pub imported_at: DateTime<Utc>,
+    pub device: String,
+    pub bank: Option<Bank>,
+    pub total_rows: i64,
+    pub new_rows: i64,
+    pub dup_rows: i64,
+}
 
 const COLUMNS: &str = "id, account_id, date, narration_raw, description, direction, \
      amount_paise, balance_paise, origin, cp_name, cp_vpa, cp_reference, cp_merchant, \
@@ -138,16 +170,19 @@ impl Db {
         Ok(())
     }
 
-    pub fn insert(&self, txn: &Transaction) -> Result<(), DbError> {
-        self.write(txn, "INSERT")
+    /// Insert a transaction. Returns `false` (and stores nothing) when an
+    /// identical statement row already exists — the dedup that makes
+    /// re-importing an overlapping statement safe.
+    pub fn insert(&self, txn: &Transaction) -> Result<bool, DbError> {
+        self.write(txn, "INSERT OR IGNORE")
     }
 
     /// Insert or fully replace the row with the same id.
     pub fn upsert(&self, txn: &Transaction) -> Result<(), DbError> {
-        self.write(txn, "INSERT OR REPLACE")
+        self.write(txn, "INSERT OR REPLACE").map(|_| ())
     }
 
-    fn write(&self, txn: &Transaction, verb: &str) -> Result<(), DbError> {
+    fn write(&self, txn: &Transaction, verb: &str) -> Result<bool, DbError> {
         let cp = txn.counterparty.as_ref();
         self.conn.execute(
             &format!(
@@ -175,8 +210,47 @@ impl Db {
                 txn.updated_at.to_rfc3339(),
                 txn.deleted,
             ],
+        )
+        .map(|changed| changed > 0)
+        .map_err(DbError::from)
+    }
+
+    pub fn record_import(&self, rec: &ImportRecord) -> Result<(), DbError> {
+        self.conn.execute(
+            "INSERT INTO imports (id, imported_at, device, bank, total_rows, new_rows, dup_rows) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![
+                rec.id.to_string(),
+                rec.imported_at.to_rfc3339(),
+                rec.device,
+                rec.bank.map(Bank::as_str),
+                rec.total_rows,
+                rec.new_rows,
+                rec.dup_rows,
+            ],
         )?;
         Ok(())
+    }
+
+    /// Import history, newest first.
+    pub fn list_imports(&self) -> Result<Vec<ImportRecord>, DbError> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, imported_at, device, bank, total_rows, new_rows, dup_rows \
+             FROM imports ORDER BY imported_at DESC",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            let bank: Option<String> = row.get(3)?;
+            Ok(ImportRecord {
+                id: decode_uuid(0, &row.get::<_, String>(0)?)?,
+                imported_at: decode_utc(1, &row.get::<_, String>(1)?)?,
+                device: row.get(2)?,
+                bank: bank.map(|b| decode(3, &b, Bank::from_str_opt)).transpose()?,
+                total_rows: row.get(4)?,
+                new_rows: row.get(5)?,
+                dup_rows: row.get(6)?,
+            })
+        })?;
+        Ok(rows.collect::<Result<_, _>>()?)
     }
 
     /// All non-deleted transactions, newest date first.
@@ -312,6 +386,34 @@ mod tests {
         let b = txn("2026-02-02", "IMPS-REF-SYNTH", 7_500);
         db.upsert(&b).expect("upsert new");
         assert_eq!(db.list().expect("list").len(), 1);
+    }
+
+    #[test]
+    fn reimporting_identical_rows_is_ignored() {
+        let db = Db::open_in_memory("k").expect("open");
+        let a = txn("2026-05-01", "UPI/DUPCHECK/synth@ybl", -50_00);
+        assert!(db.insert(&a).expect("first insert"));
+        // Same statement row re-imported later: new uuid, same content.
+        let mut b = a.clone();
+        b.id = Uuid::new_v4();
+        assert!(!db.insert(&b).expect("dup insert is a no-op"));
+        assert_eq!(db.list().expect("list").len(), 1);
+    }
+
+    #[test]
+    fn import_history_roundtrip() {
+        let db = Db::open_in_memory("k").expect("open");
+        let rec = ImportRecord {
+            id: Uuid::new_v4(),
+            imported_at: Utc::now(),
+            device: "SYNTH-DEVICE".into(),
+            bank: Some(Bank::Icici),
+            total_rows: 45,
+            new_rows: 40,
+            dup_rows: 5,
+        };
+        db.record_import(&rec).expect("record");
+        assert_eq!(db.list_imports().expect("list"), vec![rec]);
     }
 
     #[test]
