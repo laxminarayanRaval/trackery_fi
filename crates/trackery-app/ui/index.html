@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Trackery</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Unlock screen -->
+  <section id="lock" class="lock">
+    <div class="lock-card">
+      <h1 class="wordmark">Trackery</h1>
+      <p class="lock-tag">Your money, on your machine. Nothing leaves this device.</p>
+      <label class="field-label" for="passphrase">Vault passphrase</label>
+      <input id="passphrase" type="password" autocomplete="current-password"
+             placeholder="Enter your passphrase" />
+      <button id="unlock-btn" class="btn btn-primary">Unlock vault</button>
+      <p id="lock-error" class="error" hidden></p>
+      <p class="lock-hint">First time? The passphrase you enter now encrypts a new vault.
+        There is no recovery — write it down.</p>
+    </div>
+  </section>
+
+  <!-- Main app -->
+  <main id="app" hidden>
+    <header class="topbar">
+      <div>
+        <span class="wordmark small">Trackery</span>
+        <span class="topbar-sub">private ledger</span>
+      </div>
+      <div class="topbar-actions">
+        <input id="file-input" type="file" accept="application/pdf" hidden />
+        <button id="import-btn" class="btn btn-primary">Import statement</button>
+      </div>
+    </header>
+
+    <!-- PDF password prompt (appears during import when needed) -->
+    <div id="pdf-pass-row" class="pdf-pass" hidden>
+      <span id="pdf-pass-label">This statement is password-protected.</span>
+      <input id="pdf-pass-input" type="password" placeholder="PDF password" />
+      <button id="pdf-pass-go" class="btn">Open</button>
+      <button id="pdf-pass-cancel" class="btn btn-ghost">Cancel</button>
+    </div>
+
+    <p id="status-line" class="status" hidden></p>
+
+    <!-- Headline numbers -->
+    <section class="kpis" id="kpis" aria-label="Summary"></section>
+
+    <!-- One filter row scopes everything below it -->
+    <section class="filters" aria-label="Filters">
+      <div class="filter">
+        <label for="f-from">From</label>
+        <input id="f-from" type="date" />
+      </div>
+      <div class="filter">
+        <label for="f-to">To</label>
+        <input id="f-to" type="date" />
+      </div>
+      <div class="filter">
+        <label for="f-dir">Type</label>
+        <select id="f-dir">
+          <option value="">All</option>
+          <option value="credit">Credit only</option>
+          <option value="debit">Debit only</option>
+        </select>
+      </div>
+      <div class="filter">
+        <label for="f-mode">Mode</label>
+        <select id="f-mode"><option value="">All</option></select>
+      </div>
+      <div class="filter">
+        <label for="f-min">Min ₹</label>
+        <input id="f-min" type="number" min="0" placeholder="0" />
+      </div>
+      <div class="filter">
+        <label for="f-max">Max ₹</label>
+        <input id="f-max" type="number" min="0" placeholder="Any" />
+      </div>
+      <div class="filter grow">
+        <label for="f-q">Search</label>
+        <input id="f-q" type="search" placeholder="Narration, name, VPA, reference…" />
+      </div>
+      <button id="f-clear" class="btn btn-ghost">Clear</button>
+    </section>
+
+    <!-- Charts -->
+    <section class="charts" id="charts" aria-label="Charts"></section>
+
+    <!-- Ledger -->
+    <section class="ledger-wrap">
+      <div class="ledger-head">
+        <h2>Transactions</h2>
+        <span id="ledger-count" class="muted"></span>
+      </div>
+      <div id="ledger"></div>
+    </section>
+
+    <div id="empty" class="empty" hidden>
+      <p class="empty-title">The ledger is empty.</p>
+      <p>Import a bank statement PDF to see your transactions, charts, and totals.</p>
+    </div>
+  </main>
+
+  <div id="tooltip" class="tooltip" hidden></div>
+
+  <script src="app.js" defer></script>
+</body>
+</html>

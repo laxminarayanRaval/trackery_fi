@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/trackery-core"]
+members = ["crates/trackery-core", "crates/trackery-app"]
 resolver = "2"
 
 [workspace.package]
