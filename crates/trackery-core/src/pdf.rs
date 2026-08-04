@@ -18,9 +18,17 @@
 //!    from the APK's native library directory.
 
 use std::path::PathBuf;
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock, PoisonError};
 
 use pdfium_render::prelude::*;
+
+/// Pdfium is not thread-safe, and pdfium-render's `thread_safe` marshall only
+/// serializes whole `Pdfium` *instances* — calls on a single shared instance
+/// (our case) are not locked at all. Concurrent calls race pdfium's internal
+/// state (e.g. the one-time system-font scan) and corrupt the heap. So every
+/// pdfium session — load through text extraction and document drop
+/// (`FPDF_CloseDocument`) — must hold this process-wide lock.
+static PDFIUM_CALLS: Mutex<()> = Mutex::new(());
 
 #[derive(Debug, thiserror::Error)]
 pub enum PdfError {
@@ -42,6 +50,9 @@ pub enum PdfError {
 /// so the UI can re-prompt, while unreadable files yield
 /// [`PdfError::CorruptPdf`].
 pub fn open_statement(bytes: &[u8], password: Option<&str>) -> Result<Vec<String>, PdfError> {
+    // Poison is harmless here: the guarded data is (), and pdfium state after
+    // a panicked extraction is no worse than after a failed one.
+    let _pdfium_session = PDFIUM_CALLS.lock().unwrap_or_else(PoisonError::into_inner);
     let pdfium = pdfium()?;
     let doc = pdfium
         .load_pdf_from_byte_slice(bytes, password)
@@ -61,8 +72,10 @@ pub fn open_statement(bytes: &[u8], password: Option<&str>) -> Result<Vec<String
         .collect()
 }
 
-/// Process-wide pdfium instance. The `thread_safe` crate feature serializes
-/// all pdfium calls behind an internal mutex, so sharing one instance is safe.
+/// Process-wide pdfium instance. Sharing one instance is only safe because
+/// every caller holds [`PDFIUM_CALLS`] for the duration of its pdfium session;
+/// the crate's `thread_safe` marshall does NOT serialize calls on a shared
+/// instance (see [`PDFIUM_CALLS`]).
 fn pdfium() -> Result<&'static Pdfium, PdfError> {
     static PDFIUM: OnceLock<Result<Pdfium, String>> = OnceLock::new();
     PDFIUM
@@ -260,6 +273,25 @@ mod tests {
             open_statement(&pdf, None),
             Err(PdfError::WrongPassword)
         ));
+    }
+
+    /// Regression: unserialized concurrent pdfium calls raced the one-time
+    /// system-font scan and corrupted the heap (SIGABRT, double free).
+    #[test]
+    fn concurrent_extractions_are_safe() {
+        let pdf = build_pdf(None);
+        let barrier = std::sync::Barrier::new(8);
+        std::thread::scope(|s| {
+            for _ in 0..8 {
+                s.spawn(|| {
+                    barrier.wait();
+                    for _ in 0..4 {
+                        let pages = open_statement(&pdf, None).expect("concurrent open");
+                        assert!(pages[0].contains("XXXX1234"));
+                    }
+                });
+            }
+        });
     }
 
     #[test]
