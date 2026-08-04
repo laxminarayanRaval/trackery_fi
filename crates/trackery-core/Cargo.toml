@@ -9,5 +9,9 @@ thiserror = "2"
 # ponytail: text extraction only — image/render features disabled to keep the Android build lean
 pdfium-render = { version = "0.8", default-features = false, features = ["sync", "pdfium_latest"] }
 
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+uuid = { version = "1", features = ["v4"] }
+rusqlite = { version = "0.32", features = ["bundled-sqlcipher-vendored-openssl"] }
+
 [dev-dependencies]
 md-5 = "0.10" # encrypted-PDF fixture generation in pdf.rs tests
