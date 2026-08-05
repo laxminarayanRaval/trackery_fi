@@ -10,7 +10,9 @@ use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection, ErrorCode};
 use uuid::Uuid;
 
-use crate::model::{Bank, Counterparty, Direction, Transaction, TransactionOrigin, TxnMode};
+use crate::model::{
+    Account, AccountType, Bank, Counterparty, Direction, Transaction, TransactionOrigin, TxnMode,
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum DbError {
@@ -62,6 +64,16 @@ const MIGRATIONS: &[&str] = &["CREATE TABLE transactions (
         total_rows  INTEGER NOT NULL,
         new_rows    INTEGER NOT NULL,
         dup_rows    INTEGER NOT NULL
+    );",
+    // v3: real accounts — several per bank (savings + current at the same
+    // bank must never mix). Keyed by the masked number a statement prints.
+    "CREATE TABLE accounts (
+        id           TEXT PRIMARY KEY,
+        bank         TEXT NOT NULL,
+        holder_name  TEXT,
+        number_last4 TEXT,
+        account_type TEXT,
+        created_at   TEXT NOT NULL
     );"];
 
 /// One statement-import event, for the audit trail shown in the import dialog.
@@ -213,6 +225,108 @@ impl Db {
         )
         .map(|changed| changed > 0)
         .map_err(DbError::from)
+    }
+
+    /// Find the account a statement belongs to — matched by (bank, masked
+    /// number) — or create it. Fills in holder/type on an existing account
+    /// when a later statement supplies what an earlier one didn't.
+    pub fn find_or_create_account(
+        &self,
+        bank: Bank,
+        holder_name: Option<&str>,
+        number_last4: Option<&str>,
+        account_type: Option<AccountType>,
+    ) -> Result<Account, DbError> {
+        let existing = self
+            .conn
+            .query_row(
+                "SELECT id, bank, holder_name, number_last4, account_type, created_at \
+                 FROM accounts WHERE bank = ?1 AND number_last4 IS ?2",
+                params![bank.as_str(), number_last4],
+                Self::row_to_account,
+            )
+            .map(Some)
+            .or_else(|e| match e {
+                rusqlite::Error::QueryReturnedNoRows => Ok(None),
+                other => Err(other),
+            })?;
+        if let Some(mut acc) = existing {
+            if acc.holder_name.is_none() && holder_name.is_some() {
+                acc.holder_name = holder_name.map(str::to_string);
+                self.conn.execute(
+                    "UPDATE accounts SET holder_name = ?2 WHERE id = ?1",
+                    params![acc.id.to_string(), holder_name],
+                )?;
+            }
+            if acc.account_type.is_none() && account_type.is_some() {
+                acc.account_type = account_type;
+                self.conn.execute(
+                    "UPDATE accounts SET account_type = ?2 WHERE id = ?1",
+                    params![acc.id.to_string(), account_type.map(AccountType::as_str)],
+                )?;
+            }
+            return Ok(acc);
+        }
+        let acc = Account {
+            id: Uuid::new_v4(),
+            bank,
+            holder_name: holder_name.map(str::to_string),
+            number_last4: number_last4.map(str::to_string),
+            account_type,
+            created_at: Utc::now(),
+        };
+        self.conn.execute(
+            "INSERT INTO accounts (id, bank, holder_name, number_last4, account_type, created_at) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![
+                acc.id.to_string(),
+                acc.bank.as_str(),
+                acc.holder_name,
+                acc.number_last4,
+                acc.account_type.map(AccountType::as_str),
+                acc.created_at.to_rfc3339(),
+            ],
+        )?;
+        Ok(acc)
+    }
+
+    pub fn list_accounts(&self) -> Result<Vec<Account>, DbError> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, bank, holder_name, number_last4, account_type, created_at \
+             FROM accounts ORDER BY created_at",
+        )?;
+        let rows = stmt.query_map([], Self::row_to_account)?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
+    fn row_to_account(row: &rusqlite::Row) -> rusqlite::Result<Account> {
+        let account_type: Option<String> = row.get(4)?;
+        Ok(Account {
+            id: decode_uuid(0, &row.get::<_, String>(0)?)?,
+            bank: decode(1, &row.get::<_, String>(1)?, Bank::from_str_opt)?,
+            holder_name: row.get(2)?,
+            number_last4: row.get(3)?,
+            account_type: account_type
+                .map(|t| decode(4, &t, AccountType::from_str_opt))
+                .transpose()?,
+            created_at: decode_utc(5, &row.get::<_, String>(5)?)?,
+        })
+    }
+
+    /// Adopt pre-account (v1/v2) rows of `bank` — stored with a nil account
+    /// id — into `account`, so dedup keys stay stable across the upgrade.
+    /// ponytail: assumes one legacy account per bank, which matches all data
+    /// written before accounts existed; multi-account banks start clean.
+    pub fn adopt_orphan_transactions(&self, account_id: Uuid, bank: Bank) -> Result<(), DbError> {
+        self.conn.execute(
+            "UPDATE transactions SET account_id = ?1 WHERE account_id = ?2 AND bank = ?3",
+            params![
+                account_id.to_string(),
+                Uuid::nil().to_string(),
+                bank.as_str()
+            ],
+        )?;
+        Ok(())
     }
 
     pub fn record_import(&self, rec: &ImportRecord) -> Result<(), DbError> {
@@ -398,6 +512,43 @@ mod tests {
         b.id = Uuid::new_v4();
         assert!(!db.insert(&b).expect("dup insert is a no-op"));
         assert_eq!(db.list().expect("list").len(), 1);
+    }
+
+    #[test]
+    fn accounts_are_keyed_by_bank_and_masked_number() {
+        let db = Db::open_in_memory("k").expect("open");
+        let savings = db
+            .find_or_create_account(Bank::Icici, None, Some("1234"), Some(AccountType::Savings))
+            .expect("create savings");
+        // Same statement again — same account, now learning the holder name.
+        let again = db
+            .find_or_create_account(
+                Bank::Icici,
+                Some("SYNTH HOLDER"),
+                Some("1234"),
+                Some(AccountType::Savings),
+            )
+            .expect("find existing");
+        assert_eq!(again.id, savings.id);
+        assert_eq!(again.holder_name.as_deref(), Some("SYNTH HOLDER"));
+        // A current account at the same bank is a different account.
+        let current = db
+            .find_or_create_account(Bank::Icici, None, Some("9876"), Some(AccountType::Current))
+            .expect("create current");
+        assert_ne!(current.id, savings.id);
+        assert_eq!(db.list_accounts().expect("list").len(), 2);
+
+        // Legacy rows (nil account) get adopted into the statement's account.
+        let orphan = txn("2026-06-01", "UPI/ORPHAN", -10_00);
+        let orphan = Transaction {
+            account_id: Uuid::nil(),
+            bank: Some(Bank::Icici),
+            ..orphan
+        };
+        db.insert(&orphan).expect("insert orphan");
+        db.adopt_orphan_transactions(savings.id, Bank::Icici)
+            .expect("adopt");
+        assert_eq!(db.list().expect("list")[0].account_id, savings.id);
     }
 
     #[test]

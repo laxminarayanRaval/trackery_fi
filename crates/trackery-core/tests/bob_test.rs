@@ -125,3 +125,15 @@ fn multi_line_narrations_are_joined() {
         "UPI/900000000008/10:00:00/UPI/synth-ref10-cd@ybl"
     );
 }
+
+#[test]
+fn extracts_account_meta() {
+    let stmt = trackery_core::banks::parse_statement_full(&fixture_pages("bob"))
+        .expect("parse bob fixture");
+    assert_eq!(stmt.meta.holder_name.as_deref(), Some("SYNTH ACCOUNT HOLDER"));
+    assert_eq!(stmt.meta.number_last4.as_deref(), Some("1234"));
+    assert_eq!(
+        stmt.meta.account_type,
+        Some(trackery_core::model::AccountType::Savings)
+    );
+}

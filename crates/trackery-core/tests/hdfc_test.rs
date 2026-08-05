@@ -105,3 +105,15 @@ fn common_fields(t: &Transaction) {
     assert_eq!(t.category_id, None);
     assert!(!t.deleted);
 }
+
+#[test]
+fn extracts_account_meta() {
+    let stmt = trackery_core::banks::parse_statement_full(&fixture_pages("hdfc"))
+        .expect("parse hdfc fixture");
+    assert_eq!(stmt.meta.holder_name.as_deref(), Some("SYNTH ACCOUNT HOLDER"));
+    assert_eq!(stmt.meta.number_last4.as_deref(), Some("1299"));
+    assert_eq!(
+        stmt.meta.account_type,
+        Some(trackery_core::model::AccountType::Savings)
+    );
+}

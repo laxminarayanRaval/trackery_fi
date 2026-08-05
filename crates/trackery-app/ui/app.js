@@ -7,6 +7,10 @@ const invoke = window.__TAURI__.core.invoke;
 const $ = (id) => document.getElementById(id);
 const els = {
   lock: $("lock"), app: $("app"), pass: $("passphrase"), unlockBtn: $("unlock-btn"),
+  pass2: $("passphrase2"), confirmLabel: $("confirm-label"), lockHint: $("lock-hint"),
+  accounts: $("accounts"), fAccWrap: $("f-acc-wrap"), fAcc: $("f-acc"),
+  holderWarning: $("holder-warning"), holderWarningText: $("holder-warning-text"),
+  importAnyway: $("import-anyway"),
   lockError: $("lock-error"), importBtn: $("import-btn"), fileInput: $("file-input"),
   dialog: $("import-dialog"), dialogClose: $("import-close"),
   chooseFile: $("choose-file"), chosenFile: $("chosen-file"),
@@ -22,7 +26,21 @@ const els = {
 
 let KEY = null;
 let ALL = [];
+let ACCOUNTS = [];
 let pendingBytes = null;
+let createMode = false;
+
+async function initLockScreen() {
+  try {
+    createMode = !(await invoke("vault_exists"));
+  } catch { createMode = false; }
+  els.unlockBtn.textContent = createMode ? "Create vault" : "Unlock vault";
+  els.pass2.hidden = !createMode;
+  els.confirmLabel.hidden = !createMode;
+  els.lockHint.textContent = createMode
+    ? "This passphrase becomes the vault's encryption key. There is no recovery — write it down somewhere safe."
+    : "Enter the passphrase you created this vault with.";
+}
 
 // ---------- formatting ----------
 const INR = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" });
@@ -53,11 +71,17 @@ function status(msg, isError = false) {
 async function unlock() {
   const key = els.pass.value;
   if (!key) return;
+  if (createMode && els.pass2.value !== key) {
+    els.lockError.hidden = false;
+    els.lockError.textContent = "The two passphrases don't match.";
+    return;
+  }
   els.unlockBtn.disabled = true;
   els.lockError.hidden = true;
   try {
     ALL = await invoke("list_transactions", { dbKey: key });
     KEY = key;
+    ACCOUNTS = await invoke("list_accounts", { dbKey: key }).catch(() => []);
     els.lock.hidden = true;
     els.app.hidden = false;
     render();
@@ -87,6 +111,7 @@ function openImportDialog() {
   els.importGo.disabled = true;
   importError("");
   els.importResult.hidden = true;
+  els.holderWarning.hidden = true;
   els.dialog.showModal();
   refreshImportHistory();
 }
@@ -105,15 +130,16 @@ els.fileInput.addEventListener("change", async () => {
   els.importResult.hidden = true;
 });
 
-async function runImport() {
+async function runImport(allowHolderMismatch = false) {
   if (!pendingBytes) return;
   const pw = els.pdfPassInput.value;
   els.importGo.disabled = true;
   els.importBusy.hidden = false;
+  els.holderWarning.hidden = true;
   importError("");
   try {
     const s = await invoke("import_statement", {
-      bytes: pendingBytes, pdfPassword: pw || null, dbKey: KEY,
+      bytes: pendingBytes, pdfPassword: pw || null, dbKey: KEY, allowHolderMismatch,
     });
     pendingBytes = null;
     els.chosenFile.textContent = "No file chosen";
@@ -122,11 +148,21 @@ async function runImport() {
       `${s.bank.toUpperCase()}: ${s.imported} new transaction${s.imported === 1 ? "" : "s"}` +
       (s.duplicates ? `, ${s.duplicates} already in the ledger (skipped)` : "") + ".";
     ALL = await invoke("list_transactions", { dbKey: KEY });
+    ACCOUNTS = await invoke("list_accounts", { dbKey: KEY }).catch(() => ACCOUNTS);
     render();
     refreshImportHistory();
   } catch (e) {
     const err = String(e);
     els.importGo.disabled = false;
+    if (err.startsWith("holder_mismatch:")) {
+      const [known, incoming] = err.slice("holder_mismatch:".length).split("|");
+      els.holderWarning.hidden = false;
+      els.holderWarningText.textContent =
+        `This statement is for "${incoming}", but this vault's accounts belong to ` +
+        `"${known}". Importing someone else's statement will mix their money into ` +
+        `your ledger.`;
+      return;
+    }
     if (err === "wrong_pdf_password") {
       importError(pw ? "That password didn't open the PDF — try again."
                      : "This statement is password-protected — enter its password.");
@@ -146,7 +182,8 @@ async function runImport() {
     if (pendingBytes) els.importGo.disabled = false;
   }
 }
-els.importGo.addEventListener("click", runImport);
+els.importGo.addEventListener("click", () => runImport());
+els.importAnyway.addEventListener("click", () => runImport(true));
 els.pdfPassInput.addEventListener("keydown", (e) => { if (e.key === "Enter") runImport(); });
 
 async function refreshImportHistory() {
@@ -172,18 +209,19 @@ async function refreshImportHistory() {
 }
 
 // ---------- filters ----------
-for (const el of [els.fFrom, els.fTo, els.fDir, els.fMode, els.fMin, els.fMax]) {
+for (const el of [els.fFrom, els.fTo, els.fDir, els.fMode, els.fAcc, els.fMin, els.fMax]) {
   el.addEventListener("change", render);
 }
 els.fQ.addEventListener("input", render);
 els.fClear.addEventListener("click", () => {
   for (const el of [els.fFrom, els.fTo, els.fMin, els.fMax, els.fQ]) el.value = "";
-  els.fDir.value = ""; els.fMode.value = "";
+  els.fDir.value = ""; els.fMode.value = ""; els.fAcc.value = "";
   render();
 });
 
 function filteredSlice() {
   const from = els.fFrom.value, to = els.fTo.value;
+  const acc = els.fAcc.value;
   const dir = els.fDir.value, mode = els.fMode.value;
   const min = els.fMin.value ? Number(els.fMin.value) * 100 : null;
   const max = els.fMax.value ? Number(els.fMax.value) * 100 : null;
@@ -191,6 +229,7 @@ function filteredSlice() {
   return ALL.filter((t) => {
     if (from && t.date < from) return false;
     if (to && t.date > to) return false;
+    if (acc && t.account_id !== acc) return false;
     if (dir && t.direction !== dir) return false;
     if (mode && (t.mode || "other") !== mode) return false;
     if (min !== null && t.amount_paise < min) return false;
@@ -222,10 +261,36 @@ function render() {
   if (!hasData) return;
 
   refreshModeOptions();
+  renderAccounts();
   const slice = filteredSlice();
   renderKpis(slice);
   renderCharts(slice);
   renderLedger(slice);
+}
+
+// ---------- accounts ----------
+const accLabel = (a) =>
+  `${a.bank.toUpperCase()}${a.number_last4 ? " ··" + a.number_last4 : ""}`;
+
+function accountById(id) {
+  return ACCOUNTS.find((a) => a.id === id);
+}
+
+function renderAccounts() {
+  els.accounts.innerHTML = ACCOUNTS.map((a) => `<span class="account-card">
+      <span class="acc-bank">${esc(a.bank.toUpperCase())}</span>
+      <span class="acc-num">${a.number_last4 ? "····" + esc(a.number_last4) : "—"}</span>
+      ${a.account_type ? `<span class="acc-type">${esc(a.account_type)}</span>` : ""}
+      ${a.holder_name ? `<span class="acc-holder">${esc(a.holder_name)}</span>` : ""}
+    </span>`).join("");
+  // Account filter only earns its place once there's a choice to make.
+  els.fAccWrap.hidden = ACCOUNTS.length < 2;
+  if (ACCOUNTS.length >= 2) {
+    const current = els.fAcc.value;
+    els.fAcc.innerHTML = `<option value="">All</option>` +
+      ACCOUNTS.map((a) => `<option value="${a.id}">${esc(accLabel(a))}${a.account_type ? " · " + esc(a.account_type.toUpperCase()) : ""}</option>`).join("");
+    if (ACCOUNTS.some((a) => a.id === current)) els.fAcc.value = current;
+  }
 }
 
 // ---------- KPIs ----------
@@ -318,7 +383,30 @@ for (const [over, out] of [["mouseover", "mouseout"], ["focusin", "focusout"]]) 
 // ---------- charts ----------
 function renderCharts(slice) {
   els.charts.innerHTML =
-    monthlyFlowCard(slice) + byModeCard(slice) + balanceCard(slice) + counterpartyCard(slice);
+    monthlyFlowCard(slice) + byModeCard(slice) + balanceCard(slice) + counterpartyCard(slice) +
+    fdCard(slice);
+}
+
+// ---------- fixed deposits ----------
+// ponytail: narration-pattern tag, good enough until statements carry
+// structured FD data; upgrade path is a parser-level product classifier.
+const FD_RE = /\b(FD|FIXED DEPOSIT|SWEEP|RD)\b/i;
+
+function fdCard(slice) {
+  const fd = slice.filter((t) => FD_RE.test(t.narration));
+  if (!fd.length) return "";
+  const moved = fd.filter((t) => t.direction === "debit").reduce((s, t) => s + t.amount_paise, 0);
+  const back = fd.filter((t) => t.direction === "credit").reduce((s, t) => s + t.amount_paise, 0);
+  const table = `<table><tr><th>Date</th><th>Narration</th><th class="num">Amount</th></tr>` +
+    fd.map((t) => `<tr><td>${fmtDate(t.date)}</td>
+      <td>${esc(truncate(t.narration, 44))}</td>
+      <td class="amount ${t.direction}">${t.direction === "debit" ? "→ " : "← "}${rupees(t.amount_paise)}</td></tr>`).join("") +
+    `</table>`;
+  return `<div class="card">
+    <div class="card-head"><h3>Fixed deposits &amp; sweeps</h3></div>
+    <p class="fd-net">Moved to deposits: ${rupees(moved)}${back ? ` · matured back: ${rupees(back)}` : ""}</p>
+    ${table}
+  </div>`;
 }
 
 function monthlyFlowCard(slice) {
@@ -472,19 +560,24 @@ const firstWords = (s, n) => s.split(/\s+/).slice(0, n).join(" ");
 
 // ---------- ledger ----------
 function renderLedger(slice) {
-  const multiBank = new Set(ALL.map((t) => t.bank)).size > 1;
+  // One column carries provenance: bank alone until accounts multiply, then
+  // the full account identity (bank + masked number).
+  const multiAccount = ACCOUNTS.length > 1;
+  const multiBank = multiAccount || new Set(ALL.map((t) => t.bank)).size > 1;
   els.ledgerCount.textContent = `${slice.length} of ${ALL.length} transactions`;
   const head = `<tr>
-    <th>Date</th><th>Details</th>${multiBank ? "<th>Bank</th>" : ""}
+    <th>Date</th><th>Details</th>${multiBank ? `<th>${multiAccount ? "Account" : "Bank"}</th>` : ""}
     <th class="num">Credit&nbsp;↑</th><th class="num">Debit&nbsp;↓</th><th class="num">Balance</th></tr>`;
   const rows = slice.map((t) => {
     const name = t.cp_name || firstWords(t.narration, 4);
     const credit = t.direction === "credit";
+    const acc = accountById(t.account_id);
+    const provenance = multiAccount && acc ? accLabel(acc) : t.bank.toUpperCase();
     return `<tr class="${t.direction}">
       <td class="mono">${fmtDate(t.date)}</td>
       <td><span class="txn-name">${esc(name)}</span>${t.mode ? `<span class="chip">${t.mode}</span>` : ""}
         <div class="txn-narr" title="${esc(t.narration)}">${esc(t.narration)}${t.cp_vpa ? " · " + esc(t.cp_vpa) : ""}</div></td>
-      ${multiBank ? `<td>${t.bank.toUpperCase()}</td>` : ""}
+      ${multiBank ? `<td>${esc(provenance)}</td>` : ""}
       <td class="amount credit">${credit ? rupees(t.amount_paise) : '<span class="muted">—</span>'}</td>
       <td class="amount debit">${credit ? '<span class="muted">—</span>' : rupees(t.amount_paise)}</td>
       <td class="amount">${t.balance_paise != null ? rupees(t.balance_paise) : ""}</td>
@@ -493,4 +586,5 @@ function renderLedger(slice) {
   els.ledger.innerHTML = `<table>${head}${rows || ""}</table>`;
 }
 
+initLockScreen();
 els.pass.focus();

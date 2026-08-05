@@ -194,6 +194,44 @@ input[type="search"], select {
 .kpi.credit .value { color: var(--credit); }
 .kpi.debit .value { color: var(--debit); }
 
+/* ---------- Accounts strip ---------- */
+.accounts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px 28px 0;
+}
+.accounts:empty { padding: 0; }
+.account-card {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  padding: 6px 14px;
+  font-size: 12.5px;
+}
+.account-card .acc-bank { font-weight: 700; letter-spacing: 0.03em; }
+.account-card .acc-num { font-family: Consolas, ui-monospace, monospace; color: var(--ink-2); }
+.account-card .acc-type {
+  text-transform: uppercase;
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+.account-card .acc-holder { color: var(--muted); font-size: 11.5px; }
+
+.holder-warning {
+  border: 1px solid var(--debit);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.holder-warning p { margin: 0 0 8px; color: var(--ink-2); }
+
+/* ---------- FD panel ---------- */
+.fd-net { color: var(--ink-2); font-size: 12.5px; margin: 0 0 6px; }
+
 /* ---------- Filters ---------- */
 .filters {
   display: flex;

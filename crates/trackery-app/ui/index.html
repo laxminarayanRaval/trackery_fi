@@ -16,10 +16,12 @@
       <label class="field-label" for="passphrase">Vault passphrase</label>
       <input id="passphrase" type="password" autocomplete="current-password"
              placeholder="Enter your passphrase" />
+      <label id="confirm-label" class="field-label" for="passphrase2" hidden>Confirm passphrase</label>
+      <input id="passphrase2" type="password" autocomplete="new-password"
+             placeholder="Type it again" hidden />
       <button id="unlock-btn" class="btn btn-primary">Unlock vault</button>
       <p id="lock-error" class="error" hidden></p>
-      <p class="lock-hint">First time? The passphrase you enter now encrypts a new vault.
-        There is no recovery — write it down.</p>
+      <p id="lock-hint" class="lock-hint"></p>
     </div>
   </section>
 
@@ -55,6 +57,10 @@
           <span id="import-busy" class="muted" hidden>Reading statement…</span>
         </div>
         <p id="import-error" class="error" hidden></p>
+        <div id="holder-warning" class="holder-warning" hidden>
+          <p id="holder-warning-text"></p>
+          <button id="import-anyway" class="btn">Import anyway</button>
+        </div>
         <p id="import-result" class="import-result" hidden></p>
         <h3 class="history-title">Import history</h3>
         <div id="import-history" class="import-history">
@@ -67,6 +73,9 @@
 
     <!-- Headline numbers -->
     <section class="kpis" id="kpis" aria-label="Summary"></section>
+
+    <!-- Accounts on file -->
+    <section class="accounts" id="accounts" aria-label="Accounts"></section>
 
     <!-- One filter row scopes everything below it -->
     <section class="filters" aria-label="Filters">
@@ -89,6 +98,10 @@
       <div class="filter">
         <label for="f-mode">Mode</label>
         <select id="f-mode"><option value="">All</option></select>
+      </div>
+      <div class="filter" id="f-acc-wrap" hidden>
+        <label for="f-acc">Account</label>
+        <select id="f-acc"><option value="">All</option></select>
       </div>
       <div class="filter">
         <label for="f-min">Min ₹</label>

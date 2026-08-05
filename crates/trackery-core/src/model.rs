@@ -36,6 +36,26 @@ pub enum TransactionOrigin {
     SmsImport,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AccountType {
+    Savings,
+    Current,
+    Other,
+}
+
+/// One bank account, keyed by (bank, masked number). A person routinely has
+/// several accounts at the same bank — savings and current must never mix.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Account {
+    pub id: Uuid,
+    pub bank: Bank,
+    pub holder_name: Option<String>,
+    /// Last 4 digits of the account number, as printed (masked) on statements.
+    pub number_last4: Option<String>,
+    pub account_type: Option<AccountType>,
+    pub created_at: DateTime<Utc>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Counterparty {
     pub name: Option<String>,
@@ -83,6 +103,11 @@ macro_rules! str_enum {
 
 str_enum!(Direction { Debit => "debit", Credit => "credit" });
 str_enum!(Bank { Bob => "bob", Hdfc => "hdfc", Icici => "icici" });
+str_enum!(AccountType {
+    Savings => "savings",
+    Current => "current",
+    Other => "other",
+});
 str_enum!(TransactionOrigin {
     StatementImport => "statement_import",
     ManualEntry => "manual_entry",

@@ -24,6 +24,7 @@ fn device_name() -> String {
 #[derive(serde::Serialize)]
 struct TxnDto {
     id: String,
+    account_id: String,
     date: String,
     narration: String,
     direction: String,
@@ -41,6 +42,7 @@ impl From<&Transaction> for TxnDto {
         let cp = t.counterparty.as_ref();
         TxnDto {
             id: t.id.to_string(),
+            account_id: t.account_id.to_string(),
             date: t.date.to_string(),
             narration: t.narration_raw.clone(),
             direction: t.direction.as_str().to_string(),
@@ -61,6 +63,15 @@ struct ImportSummary {
     total: usize,
     imported: usize,
     duplicates: usize,
+}
+
+#[derive(serde::Serialize)]
+struct AccountDto {
+    id: String,
+    bank: String,
+    holder_name: Option<String>,
+    number_last4: Option<String>,
+    account_type: Option<String>,
 }
 
 #[derive(serde::Serialize)]
@@ -119,24 +130,69 @@ async fn import_statement(
     bytes: Vec<u8>,
     pdf_password: Option<String>,
     db_key: String,
+    allow_holder_mismatch: Option<bool>,
 ) -> Result<ImportSummary, String> {
     let pages = pdf::open_statement(&bytes, pdf_password.as_deref()).map_err(|e| match e {
         PdfError::WrongPassword => "wrong_pdf_password".to_string(),
         PdfError::CorruptPdf => "corrupt_pdf".to_string(),
         PdfError::PdfiumUnavailable(e) => format!("pdfium_unavailable: {e}"),
     })?;
-    let txns = banks::parse_statement(&pages).map_err(|e| match e {
+    let parsed = banks::parse_statement_full(&pages).map_err(|e| match e {
         ParseError::UnsupportedBank => "unsupported_bank".to_string(),
         ParseError::MalformedStatement { line } => format!("malformed_statement:{line}"),
     })?;
+    let mut txns = parsed.transactions;
+    let meta = parsed.meta;
     let db = open_db(&app, &db_key)?;
+
+    // A statement whose printed holder differs from every holder we know is
+    // probably someone else's — surface it before it pollutes the ledger.
+    if allow_holder_mismatch != Some(true) {
+        if let Some(incoming) = &meta.holder_name {
+            let known: Vec<String> = db
+                .list_accounts()
+                .map_err(|e| format!("db: {e}"))?
+                .into_iter()
+                .filter_map(|a| a.holder_name)
+                .collect();
+            let matches_known = known
+                .iter()
+                .any(|k| k.eq_ignore_ascii_case(incoming.trim()));
+            if !known.is_empty() && !matches_known {
+                return Err(format!(
+                    "holder_mismatch:{}|{}",
+                    known.join(", "),
+                    incoming
+                ));
+            }
+        }
+    }
+
+    let bank = txns.first().and_then(|t| t.bank);
+    if let Some(bank) = bank {
+        let account = db
+            .find_or_create_account(
+                bank,
+                meta.holder_name.as_deref(),
+                meta.number_last4.as_deref(),
+                meta.account_type,
+            )
+            .map_err(|e| format!("db: {e}"))?;
+        // Rows imported before accounts existed carry a nil account id;
+        // adopt them so dedup stays stable across the upgrade.
+        db.adopt_orphan_transactions(account.id, bank)
+            .map_err(|e| format!("db: {e}"))?;
+        for txn in &mut txns {
+            txn.account_id = account.id;
+        }
+    }
+
     let mut imported = 0usize;
     for txn in &txns {
         if db.insert(txn).map_err(|e| format!("db: {e}"))? {
             imported += 1;
         }
     }
-    let bank = txns.first().and_then(|t| t.bank);
     db.record_import(&ImportRecord {
         id: uuid::Uuid::new_v4(),
         imported_at: chrono::Utc::now(),
@@ -153,6 +209,33 @@ async fn import_statement(
         imported,
         duplicates: txns.len() - imported,
     })
+}
+
+#[tauri::command]
+async fn list_accounts(app: tauri::AppHandle, db_key: String) -> Result<Vec<AccountDto>, String> {
+    let db = open_db(&app, &db_key)?;
+    Ok(db
+        .list_accounts()
+        .map_err(|e| format!("db: {e}"))?
+        .into_iter()
+        .map(|a| AccountDto {
+            id: a.id.to_string(),
+            bank: a.bank.as_str().to_string(),
+            holder_name: a.holder_name,
+            number_last4: a.number_last4,
+            account_type: a.account_type.map(|t| t.as_str().to_string()),
+        })
+        .collect())
+}
+
+/// Whether a vault (or a legacy vault awaiting adoption) already exists —
+/// drives the create-vs-unlock copy on the entry screen.
+#[tauri::command]
+async fn vault_exists(app: tauri::AppHandle) -> Result<bool, String> {
+    let path = db_path(&app)?;
+    let dir = path.parent().ok_or("db path has no parent")?;
+    Ok(path.exists()
+        || (dir.join("db.key").exists() && dir.join("trackery.db.old-vault-20260805").exists()))
 }
 
 #[tauri::command]
@@ -188,7 +271,9 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             import_statement,
             list_transactions,
-            list_imports
+            list_imports,
+            list_accounts,
+            vault_exists
         ])
         .run(tauri::generate_context!())
         .expect("error while running trackery");

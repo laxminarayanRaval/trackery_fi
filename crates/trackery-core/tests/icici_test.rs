@@ -112,3 +112,16 @@ fn detects_icici_but_not_unsupported() {
     let unsupported = fixture_pages("unsupported");
     assert!(!IciciProfile::detect(&unsupported[0]));
 }
+
+#[test]
+fn extracts_account_meta() {
+    let stmt = trackery_core::banks::parse_statement_full(&fixture_pages("icici"))
+        .expect("parse icici fixture");
+    // The ICICI header names type + masked number but not the holder.
+    assert_eq!(stmt.meta.holder_name, None);
+    assert_eq!(stmt.meta.number_last4.as_deref(), Some("1234"));
+    assert_eq!(
+        stmt.meta.account_type,
+        Some(trackery_core::model::AccountType::Savings)
+    );
+}
