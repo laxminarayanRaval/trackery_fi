@@ -10,3 +10,4 @@ pub mod model;
 pub mod money;
 pub mod narration;
 pub mod pdf;
+pub mod vault;

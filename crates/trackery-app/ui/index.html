@@ -19,9 +19,20 @@
       <label id="confirm-label" class="field-label" for="passphrase2" hidden>Confirm passphrase</label>
       <input id="passphrase2" type="password" autocomplete="new-password"
              placeholder="Type it again" hidden />
+      <div id="recover-fields" hidden>
+        <label class="field-label" for="recover-words">Recovery phrase (12 words)</label>
+        <textarea id="recover-words" rows="2"
+          placeholder="the twelve words you were shown when the vault was created"></textarea>
+        <label class="field-label" for="recover-new">New passphrase</label>
+        <input id="recover-new" type="password" autocomplete="new-password" />
+        <label class="field-label" for="recover-new2">Confirm new passphrase</label>
+        <input id="recover-new2" type="password" autocomplete="new-password" />
+      </div>
       <button id="unlock-btn" class="btn btn-primary">Unlock vault</button>
       <p id="lock-error" class="error" hidden></p>
       <p id="lock-hint" class="lock-hint"></p>
+      <button id="recover-toggle" class="btn btn-ghost lock-link" hidden>
+        Forgot passphrase? Use your recovery phrase</button>
     </div>
   </section>
 
@@ -135,6 +146,20 @@
       <p>Import a bank statement PDF to see your transactions, charts, and totals.</p>
     </div>
   </main>
+
+  <!-- One-time recovery phrase display -->
+  <dialog id="words-dialog" class="import-dialog">
+    <div class="dialog-head"><h2>Your recovery phrase</h2></div>
+    <div class="dialog-body">
+      <p>These 12 words can reset a forgotten passphrase — <strong>they are shown
+        only this once and exist nowhere else</strong>. Write them down on paper
+        and keep it safe. Anyone holding them can open this vault.</p>
+      <ol id="words-grid" class="words-grid"></ol>
+      <div class="import-actions">
+        <button id="words-saved" class="btn btn-primary">I've written them down</button>
+      </div>
+    </div>
+  </dialog>
 
   <div id="tooltip" class="tooltip" hidden></div>
 

@@ -21,6 +21,9 @@ pub enum DbError {
     WrongKey,
     #[error("database error: {0}")]
     Sqlite(#[from] rusqlite::Error),
+    /// Filesystem trouble while managing vault key files.
+    #[error("vault file error: {0}")]
+    Io(#[from] std::io::Error),
 }
 
 /// One SQL batch per schema version, index 0 = version 1. Append-only.

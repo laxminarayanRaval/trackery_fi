@@ -8,6 +8,9 @@ const $ = (id) => document.getElementById(id);
 const els = {
   lock: $("lock"), app: $("app"), pass: $("passphrase"), unlockBtn: $("unlock-btn"),
   pass2: $("passphrase2"), confirmLabel: $("confirm-label"), lockHint: $("lock-hint"),
+  recoverToggle: $("recover-toggle"), recoverFields: $("recover-fields"),
+  recoverWords: $("recover-words"), recoverNew: $("recover-new"), recoverNew2: $("recover-new2"),
+  wordsDialog: $("words-dialog"), wordsGrid: $("words-grid"), wordsSaved: $("words-saved"),
   accounts: $("accounts"), fAccWrap: $("f-acc-wrap"), fAcc: $("f-acc"),
   holderWarning: $("holder-warning"), holderWarningText: $("holder-warning-text"),
   importAnyway: $("import-anyway"),
@@ -29,17 +32,80 @@ let ALL = [];
 let ACCOUNTS = [];
 let pendingBytes = null;
 let createMode = false;
+let recoverMode = false;
 
 async function initLockScreen() {
   try {
     createMode = !(await invoke("vault_exists"));
   } catch { createMode = false; }
-  els.unlockBtn.textContent = createMode ? "Create vault" : "Unlock vault";
-  els.pass2.hidden = !createMode;
-  els.confirmLabel.hidden = !createMode;
-  els.lockHint.textContent = createMode
-    ? "This passphrase becomes the vault's encryption key. There is no recovery — write it down somewhere safe."
-    : "Enter the passphrase you created this vault with.";
+  recoverMode = false;
+  applyLockMode();
+}
+
+function applyLockMode() {
+  const unlocking = !createMode && !recoverMode;
+  els.pass.hidden = recoverMode;
+  els.pass.previousElementSibling.hidden = recoverMode; // its label
+  els.pass2.hidden = !createMode || recoverMode;
+  els.confirmLabel.hidden = !createMode || recoverMode;
+  els.recoverFields.hidden = !recoverMode;
+  els.recoverToggle.hidden = createMode;
+  els.recoverToggle.textContent = recoverMode
+    ? "Back to unlock"
+    : "Forgot passphrase? Use your recovery phrase";
+  els.unlockBtn.textContent = recoverMode
+    ? "Reset passphrase"
+    : createMode ? "Create vault" : "Unlock vault";
+  els.lockHint.textContent = recoverMode
+    ? "Enter the 12 words exactly as shown at creation — order matters, case doesn't."
+    : createMode
+      ? "This passphrase becomes the vault's encryption key. You'll get a one-time recovery phrase right after."
+      : unlocking ? "Enter the passphrase you created this vault with." : "";
+  els.lockError.hidden = true;
+}
+
+els.recoverToggle.addEventListener("click", () => {
+  recoverMode = !recoverMode;
+  applyLockMode();
+});
+
+function showRecoveryWords(words) {
+  return new Promise((resolve) => {
+    els.wordsGrid.innerHTML = words.map((w) => `<li>${esc(w)}</li>`).join("");
+    els.wordsDialog.showModal();
+    els.wordsSaved.addEventListener("click", () => {
+      els.wordsGrid.innerHTML = ""; // don't leave the phrase in the DOM
+      els.wordsDialog.close();
+      resolve();
+    }, { once: true });
+  });
+}
+
+async function recoverPassphrase() {
+  const words = els.recoverWords.value.trim();
+  const np = els.recoverNew.value;
+  if (!words || !np) return;
+  if (np !== els.recoverNew2.value) {
+    els.lockError.hidden = false;
+    els.lockError.textContent = "The two new passphrases don't match.";
+    return;
+  }
+  els.unlockBtn.disabled = true;
+  try {
+    await invoke("recover_vault", { words, newPassphrase: np });
+    recoverMode = false;
+    applyLockMode();
+    els.pass.value = np;
+    els.lockHint.textContent = "Passphrase reset. Unlocking…";
+    await unlock();
+  } catch (e) {
+    els.lockError.hidden = false;
+    els.lockError.textContent = String(e) === "wrong_db_key"
+      ? "That recovery phrase doesn't open this vault — check the words and their order."
+      : "Reset failed: " + e;
+  } finally {
+    els.unlockBtn.disabled = false;
+  }
 }
 
 // ---------- formatting ----------
@@ -69,6 +135,7 @@ function status(msg, isError = false) {
 
 // ---------- unlock ----------
 async function unlock() {
+  if (recoverMode) return recoverPassphrase();
   const key = els.pass.value;
   if (!key) return;
   if (createMode && els.pass2.value !== key) {
@@ -79,6 +146,8 @@ async function unlock() {
   els.unlockBtn.disabled = true;
   els.lockError.hidden = true;
   try {
+    const outcome = await invoke("unlock_vault", { dbKey: key });
+    if (outcome.recovery_words) await showRecoveryWords(outcome.recovery_words);
     ALL = await invoke("list_transactions", { dbKey: key });
     KEY = key;
     ACCOUNTS = await invoke("list_accounts", { dbKey: key }).catch(() => []);

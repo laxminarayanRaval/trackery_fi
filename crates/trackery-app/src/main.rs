@@ -14,6 +14,7 @@ use trackery_core::banks::{self, ParseError};
 use trackery_core::db::{Db, DbError, ImportRecord};
 use trackery_core::model::Transaction;
 use trackery_core::pdf::{self, PdfError};
+use trackery_core::vault;
 
 fn device_name() -> String {
     std::env::var("COMPUTERNAME")
@@ -93,13 +94,22 @@ fn db_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(dir.join("trackery.db"))
 }
 
-fn open_db(app: &tauri::AppHandle, key: &str) -> Result<Db, String> {
+fn map_db_err(e: DbError) -> String {
+    match e {
+        DbError::WrongKey => "wrong_db_key".to_string(),
+        other => format!("db: {other}"),
+    }
+}
+
+fn open_vault(app: &tauri::AppHandle, key: &str) -> Result<vault::Unlocked, String> {
     let path = db_path(app)?;
     migrate_legacy_vault(&path, key)?;
-    Db::open(&path, key).map_err(|e| match e {
-        DbError::WrongKey => "wrong_db_key".to_string(),
-        DbError::Sqlite(e) => format!("db: {e}"),
-    })
+    let dir = path.parent().ok_or("db path has no parent")?;
+    vault::unlock(dir, &path, key).map_err(map_db_err)
+}
+
+fn open_db(app: &tauri::AppHandle, key: &str) -> Result<Db, String> {
+    Ok(open_vault(app, key)?.db)
 }
 
 /// One-time adoption of a v0 vault: the old app kept a random key in a
@@ -235,7 +245,37 @@ async fn vault_exists(app: tauri::AppHandle) -> Result<bool, String> {
     let path = db_path(&app)?;
     let dir = path.parent().ok_or("db path has no parent")?;
     Ok(path.exists()
+        || dir.join("keyslot_pass.db").exists()
         || (dir.join("db.key").exists() && dir.join("trackery.db.old-vault-20260805").exists()))
+}
+
+#[derive(serde::Serialize)]
+struct UnlockOutcome {
+    /// Present exactly once, when this unlock minted the recovery phrase.
+    recovery_words: Option<Vec<String>>,
+}
+
+/// Open (or create/upgrade) the vault. Call before any data command; the
+/// returned words, when present, must be shown to the user immediately —
+/// they will never be available again.
+#[tauri::command]
+async fn unlock_vault(app: tauri::AppHandle, db_key: String) -> Result<UnlockOutcome, String> {
+    let unlocked = open_vault(&app, &db_key)?;
+    Ok(UnlockOutcome {
+        recovery_words: unlocked.new_recovery_words,
+    })
+}
+
+/// Reset the passphrase using the one-time recovery phrase. Works offline.
+#[tauri::command]
+async fn recover_vault(
+    app: tauri::AppHandle,
+    words: String,
+    new_passphrase: String,
+) -> Result<(), String> {
+    let path = db_path(&app)?;
+    let dir = path.parent().ok_or("db path has no parent")?;
+    vault::recover(dir, &words, &new_passphrase).map_err(map_db_err)
 }
 
 #[tauri::command]
@@ -273,7 +313,9 @@ fn main() {
             list_transactions,
             list_imports,
             list_accounts,
-            vault_exists
+            vault_exists,
+            unlock_vault,
+            recover_vault
         ])
         .run(tauri::generate_context!())
         .expect("error while running trackery");
